@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Arena.Orchestrator</AssemblyName>
+    <RootNamespace>OpenTtd.ModelArena.Orchestrator</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Arena.AdminProtocol/Arena.AdminProtocol.csproj" />
+    <ProjectReference Include="../Arena.Camera/Arena.Camera.csproj" />
+    <ProjectReference Include="../Arena.Contracts/Arena.Contracts.csproj" />
+    <ProjectReference Include="../Arena.Obs/Arena.Obs.csproj" />
+    <ProjectReference Include="../Arena.Providers/Arena.Providers.csproj" />
+    <ProjectReference Include="../Arena.Scoring/Arena.Scoring.csproj" />
+    <ProjectReference Include="../Arena.Storage/Arena.Storage.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,18 @@
+{
+  "name": "openttd-model-arena",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Foundation validation and quality gates for OpenTTD Model Arena.",
+  "scripts": {
+    "check:architecture": "node scripts/check-architecture.mjs",
+    "check:format": "node scripts/check-format.mjs",
+    "check:openttd": "node scripts/validate-openttd-packages.mjs",
+    "scan:secrets": "node scripts/scan-secrets.mjs",
+    "test": "node --test tests/schema-contracts.test.mjs tests/architecture-boundaries.test.mjs tests/replay-provider-fixtures.test.mjs",
+    "validate:schemas": "node scripts/validate-schemas.mjs",
+    "verify": "npm run check:format && npm run validate:schemas && npm run check:architecture && npm run check:openttd && npm run scan:secrets && npm test"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

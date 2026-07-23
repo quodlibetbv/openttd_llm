@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "run_id": "run-0001",
+  "game_date": "1950-01-01",
+  "sections": {
+    "run_context": {
+      "summary": "Replay foundation run with no provider network access."
+    },
+    "goal_context": {
+      "summary": "Validate stable observation and action contracts."
+    },
+    "game_clock": {
+      "summary": "The game is paused on 1950-01-01."
+    },
+    "company_summary": {
+      "summary": "The benchmark company has no active assets."
+    },
+    "financial_summary": {
+      "summary": "No financial metrics are available in the foundation fixture."
+    },
+    "network_summary": {
+      "summary": "No transport network exists yet."
+    },
+    "active_projects": {
+      "summary": "No projects are active."
+    },
+    "constraints_and_budgets": {
+      "summary": "Only declared tools and budgets may be used."
+    },
+    "candidate_opportunities": {
+      "summary": "Opportunity ranking is introduced in Phase 04."
+    },
+    "recent_events": {
+      "summary": "The run was initialized."
+    },
+    "prior_decision_results": {
+      "summary": "No prior decision results exist."
+    },
+    "remaining_model_budget": {
+      "summary": "The fixture permits one replayed decision."
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "run_id": "run-0001",
+  "total_score": 12.5,
+  "components": [
+    {
+      "key": "foundation_completion",
+      "value": 1,
+      "weight": 12.5,
+      "contribution": 12.5
+    }
+  ],
+  "derived_from_overlay": true
+}

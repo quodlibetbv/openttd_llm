@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "run_id": "run-0001",
+  "game_date": "1950-01-01",
+  "sections": {
+    "run_context": { "summary": "Replay foundation run." },
+    "goal_context": { "summary": "Validate contracts." },
+    "game_clock": { "summary": "Paused." },
+    "company_summary": { "summary": "No assets." },
+    "financial_summary": { "summary": "No metrics." },
+    "network_summary": { "summary": "No network." },
+    "active_projects": { "summary": "No projects." },
+    "constraints_and_budgets": { "summary": "Bounded." },
+    "candidate_opportunities": { "summary": "Deferred." },
+    "recent_events": { "summary": "Initialized." },
+    "prior_decision_results": { "summary": "None." }
+  }
+}

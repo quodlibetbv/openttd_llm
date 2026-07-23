@@ -1,0 +1,14 @@
+{
+  "decision_id": "decision-0001",
+  "public_summary": "Wait for a later review.",
+  "observations": [
+    "A bounded retry is not a gameplay action."
+  ],
+  "actions": [
+    {
+      "tool": "wait",
+      "arguments": {}
+    }
+  ],
+  "next_review_game_days": 0
+}

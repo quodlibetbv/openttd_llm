@@ -1,0 +1,16 @@
+{
+  "decision_id": "decision-0001",
+  "public_summary": "Wait for the first normalized observation before selecting a route action.",
+  "observations": [
+    "The foundation replay fixture contains a safe no-op decision."
+  ],
+  "actions": [
+    {
+      "tool": "wait",
+      "arguments": {
+        "game_days": 30
+      }
+    }
+  ],
+  "next_review_game_days": 30
+}

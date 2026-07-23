@@ -1,0 +1,31 @@
+{
+  "fixture_version": "1.0",
+  "provider": "replay",
+  "model": "foundation-fixture",
+  "steps": [
+    {
+      "expected_observation_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "decision": {
+        "decision_id": "decision-0001",
+        "public_summary": "Wait for the next review interval while the foundation run records its contract evidence.",
+        "observations": [
+          "The sanitized fixture contains no remote provider response or credential."
+        ],
+        "actions": [
+          {
+            "tool": "wait",
+            "arguments": {
+              "game_days": 30
+            }
+          }
+        ],
+        "next_review_game_days": 30
+      },
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "latency_ms": 0
+      }
+    }
+  ]
+}
