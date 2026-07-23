@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Arena.AdminProtocol</AssemblyName>
+    <RootNamespace>OpenTtd.ModelArena.AdminProtocol</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Arena.Contracts/Arena.Contracts.csproj" />
+  </ItemGroup>
+</Project>

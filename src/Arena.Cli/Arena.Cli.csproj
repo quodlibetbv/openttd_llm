@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>ttd-arena</AssemblyName>
+    <RootNamespace>OpenTtd.ModelArena.Cli</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Arena.Contracts/Arena.Contracts.csproj" />
+    <ProjectReference Include="../Arena.Orchestrator/Arena.Orchestrator.csproj" />
+  </ItemGroup>
+</Project>

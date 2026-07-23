@@ -1,0 +1,8 @@
+{
+  "action_id": "action-0001",
+  "run_id": "run-0001",
+  "correlation_id": "correlation-0001",
+  "status": "completed",
+  "message": "The requested wait interval completed.",
+  "raw_provider_body": "not permitted"
+}

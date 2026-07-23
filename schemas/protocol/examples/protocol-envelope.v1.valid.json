@@ -1,0 +1,10 @@
+{
+  "protocol_version": "1.0",
+  "message_type": "heartbeat",
+  "run_id": "run-0001",
+  "message_id": "message-0001",
+  "correlation_id": "correlation-0001",
+  "payload": {
+    "game_date": "1950-01-01"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "action_id": "action-0001",
+  "run_id": "run-0001",
+  "decision_id": "decision-0001",
+  "correlation_id": "correlation-0001",
+  "idempotency_key": "action-0001-attempt-1",
+  "tool": "wait",
+  "arguments": {
+    "game_days": 30
+  }
+}

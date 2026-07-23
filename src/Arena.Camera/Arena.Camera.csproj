@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Arena.Camera</AssemblyName>
+    <RootNamespace>OpenTtd.ModelArena.Camera</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Arena.Contracts/Arena.Contracts.csproj" />
+  </ItemGroup>
+</Project>

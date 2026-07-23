@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openttd-model-arena.dev/schemas/actions/action-result.v1.json",
+  "title": "GameScript action result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "action_id",
+    "run_id",
+    "correlation_id",
+    "status",
+    "message"
+  ],
+  "properties": {
+    "action_id": { "$ref": "#/$defs/identifier" },
+    "run_id": { "$ref": "#/$defs/identifier" },
+    "correlation_id": { "$ref": "#/$defs/identifier" },
+    "status": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "in_progress",
+        "completed",
+        "failed",
+        "rejected",
+        "duplicate"
+      ]
+    },
+    "error_code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^ARENA-[A-Z0-9-]+$"
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "data": {
+      "type": "object",
+      "maxProperties": 64,
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    }
+  }
+}

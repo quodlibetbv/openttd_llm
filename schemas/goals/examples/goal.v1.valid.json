@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "goal_id": "foundation-smoke",
+  "version": "1.0.0",
+  "title": "Foundation contract smoke goal",
+  "objective": "Verify that one deterministic replay decision uses only declared tools.",
+  "allowed_tools": [
+    "wait"
+  ],
+  "constraints": {
+    "minimum_cash_reserve": 0,
+    "per_project_budget": 1
+  },
+  "model_budget": {
+    "maximum_calls": 1,
+    "maximum_output_tokens": 500,
+    "maximum_retries": 1
+  },
+  "end_condition": {
+    "type": "model_budget_exhausted",
+    "value": "1"
+  },
+  "score_schema_version": "1.0",
+  "camera_relevance_hints": [
+    "Show the initial game state."
+  ]
+}

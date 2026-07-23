@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openttd-model-arena.dev/schemas/scores/score.v1.json",
+  "title": "Arena score v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "total_score",
+    "components"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "run_id": { "$ref": "#/$defs/identifier" },
+    "total_score": {
+      "type": "number",
+      "minimum": -1000000,
+      "maximum": 1000000
+    },
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/component" }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "value",
+        "weight",
+        "contribution"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "value": { "type": "number" },
+        "weight": { "type": "number" },
+        "contribution": { "type": "number" }
+      }
+    }
+  }
+}

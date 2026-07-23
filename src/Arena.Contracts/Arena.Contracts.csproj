@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Arena.Contracts</AssemblyName>
+    <RootNamespace>OpenTtd.ModelArena.Contracts</RootNamespace>
+  </PropertyGroup>
+</Project>

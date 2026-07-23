@@ -1,0 +1,50 @@
+name: quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  foundation:
+    name: Phase 00 quality gate
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install root validation dependencies
+        run: npm ci
+
+      - name: Validate schemas, architecture, OpenTTD packages, format, and secrets
+        run: npm run verify
+
+      - name: Restore .NET solution
+        run: dotnet restore OpenTTD.ModelArena.sln
+
+      - name: Check .NET formatting
+        run: dotnet format OpenTTD.ModelArena.sln --verify-no-changes --no-restore
+
+      - name: Build .NET solution
+        run: dotnet build OpenTTD.ModelArena.sln -c Debug --no-restore
+
+      - name: Run .NET contract tests
+        run: dotnet test OpenTTD.ModelArena.sln -c Debug --no-build
+
+      - name: Install and test overlay scaffold
+        run: npm ci --prefix src/Arena.Overlay && npm test --prefix src/Arena.Overlay

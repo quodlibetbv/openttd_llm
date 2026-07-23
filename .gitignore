@@ -1,0 +1,28 @@
+# Build outputs and package caches
+[Bb]in/
+[Oo]bj/
+node_modules/
+coverage/
+dist/
+TestResults/
+
+# Repository-local runtime state and generated evidence
+.runtime/
+.config/*.local.yaml
+.config/*.local.json
+artifacts/
+logs/
+
+# IDE and operating-system metadata
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.DS_Store
+Thumbs.db
+*.Zone.Identifier
+
+# Temporary data created by validation and replay checks
+.tmp/

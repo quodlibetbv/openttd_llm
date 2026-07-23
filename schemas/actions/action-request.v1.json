@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openttd-model-arena.dev/schemas/actions/action-request.v1.json",
+  "title": "GameScript action request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "action_id",
+    "run_id",
+    "decision_id",
+    "correlation_id",
+    "idempotency_key",
+    "tool",
+    "arguments"
+  ],
+  "properties": {
+    "action_id": { "$ref": "#/$defs/identifier" },
+    "run_id": { "$ref": "#/$defs/identifier" },
+    "decision_id": { "$ref": "#/$defs/identifier" },
+    "correlation_id": { "$ref": "#/$defs/identifier" },
+    "idempotency_key": { "$ref": "#/$defs/identifier" },
+    "tool": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "arguments": {
+      "type": "object",
+      "maxProperties": 32,
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    }
+  }
+}

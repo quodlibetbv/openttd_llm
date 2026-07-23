@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openttd-model-arena.dev/schemas/goals/goal.v1.json",
+  "title": "Benchmark goal v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "goal_id",
+    "version",
+    "title",
+    "objective",
+    "allowed_tools",
+    "constraints",
+    "model_budget",
+    "end_condition",
+    "score_schema_version"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "goal_id": { "$ref": "#/$defs/identifier" },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "allowed_tools": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    },
+    "constraints": {
+      "$ref": "#/$defs/constraints"
+    },
+    "model_budget": {
+      "$ref": "#/$defs/model_budget"
+    },
+    "end_condition": {
+      "$ref": "#/$defs/end_condition"
+    },
+    "score_schema_version": { "const": "1.0" },
+    "camera_relevance_hints": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimum_cash_reserve",
+        "per_project_budget"
+      ],
+      "properties": {
+        "minimum_cash_reserve": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "per_project_budget": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "model_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maximum_calls",
+        "maximum_output_tokens",
+        "maximum_retries"
+      ],
+      "properties": {
+        "maximum_calls": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "maximum_output_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "maximum_retries": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        }
+      }
+    },
+    "end_condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "value"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "game_date",
+            "bankruptcy",
+            "goal_completed",
+            "model_budget_exhausted"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        }
+      }
+    }
+  }
+}

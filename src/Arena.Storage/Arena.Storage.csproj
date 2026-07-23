@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Arena.Storage</AssemblyName>
+    <RootNamespace>OpenTtd.ModelArena.Storage</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Arena.Contracts/Arena.Contracts.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "run_id": "run-0001",
+  "created_utc": "2026-07-23T12:00:00Z",
+  "application_version": "0.1.0",
+  "git_commit": "926def4",
+  "provider": "replay",
+  "model": "foundation-fixture",
+  "contract_versions": {
+    "protocol": "1.0",
+    "observation": "1.0",
+    "action": "1.0",
+    "goal": "1.0",
+    "score": "1.0",
+    "manifest": "1.0"
+  },
+  "benchmark_input_hashes": {
+    "starting_save_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "content_manifest_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "scenario_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "game_settings_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "prompt_template_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "tool_contract_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "observation_schema_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "action_schema_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "score_schema_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "protocol_schema_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "retry_policy_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "end_condition_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  }
+}
