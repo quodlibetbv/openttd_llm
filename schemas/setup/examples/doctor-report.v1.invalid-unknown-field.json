@@ -1,0 +1,15 @@
+{
+  "report_version": 1,
+  "generated_at_utc": "2026-07-23T10:00:00+00:00",
+  "checks": [
+    {
+      "id": "host",
+      "status": "pass",
+      "code": "ARENA-DOCTOR-CHECK-PASSED",
+      "summary": "Host detected.",
+      "remediation": "No action required.",
+      "secret_value": "not-allowed"
+    }
+  ],
+  "has_blocking_failures": false
+}

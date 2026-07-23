@@ -1,0 +1,9 @@
+{
+  "config_version": 1,
+  "providers": {
+    "deepseek": {
+      "type": "deepseek",
+      "base_url": "http://not-https.example"
+    }
+  }
+}

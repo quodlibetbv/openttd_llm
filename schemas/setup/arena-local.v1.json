@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openttd-model-arena.dev/schemas/setup/arena-local.v1.json",
+  "title": "Arena local configuration v1",
+  "description": "Machine-local setup configuration. Values are repository paths and credential references, never secret values.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "config_version",
+    "runtime",
+    "openttd",
+    "obs",
+    "network",
+    "logging",
+    "doctor"
+  ],
+  "properties": {
+    "config_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "root",
+        "runs",
+        "recordings"
+      ],
+      "properties": {
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 260
+        },
+        "runs": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 260
+        },
+        "recordings": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 260
+        }
+      }
+    },
+    "openttd": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "executable",
+        "server_config",
+        "spectator_config",
+        "admin_port"
+      ],
+      "properties": {
+        "executable": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 260
+        },
+        "server_config": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 260
+        },
+        "spectator_config": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 260
+        },
+        "admin_port": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 65535,
+          "not": {
+            "const": 3979
+          }
+        }
+      }
+    },
+    "obs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host",
+        "port",
+        "credential_ref",
+        "scene_collection",
+        "executable"
+      ],
+      "properties": {
+        "host": {
+          "type": "string",
+          "enum": [
+            "127.0.0.1",
+            "::1"
+          ]
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "credential_ref": {
+          "type": "string",
+          "minLength": 27,
+          "maxLength": 264,
+          "pattern": "^credman:OpenTTDModelArena/[A-Za-z0-9._-]+$"
+        },
+        "scene_collection": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "executable": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 260
+        }
+      }
+    },
+    "network": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bind_address"
+      ],
+      "properties": {
+        "bind_address": {
+          "type": "string",
+          "enum": [
+            "127.0.0.1",
+            "::1"
+          ]
+        }
+      }
+    },
+    "logging": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "redact_secrets"
+      ],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": [
+            "Trace",
+            "Debug",
+            "Information",
+            "Warning",
+            "Error",
+            "Critical"
+          ]
+        },
+        "redact_secrets": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "doctor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimum_free_disk_gb"
+      ],
+      "properties": {
+        "minimum_free_disk_gb": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        }
+      }
+    }
+  }
+}

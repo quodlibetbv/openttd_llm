@@ -4,7 +4,7 @@ OpenTTD Model Arena is a Windows-first, hands-off benchmark and video-production
 
 ## Current status
 
-Phase 00 (Foundation) is active. This commit establishes the repository structure, accepted architecture decisions, versioned contracts, deterministic replay fixtures, and automated quality gates. It does not launch OpenTTD, call live providers, record video, or implement gameplay tools; those are later phase deliverables.
+Phase 01 (Setup and Doctor) is complete. The repository provides an idempotent Windows bootstrap flow, closed local-configuration schemas, Windows Credential Manager commands, repository-contained OpenTTD runtime generation, an OBS scene checklist/template, and a structured `doctor` command. It does not launch OpenTTD, call live providers, record video, or implement gameplay tools; those are later phase deliverables.
 
 ## Document map
 
@@ -14,7 +14,7 @@ Phase 00 (Foundation) is active. This commit establishes the repository structur
 | [SETUP.md](SETUP.md) | Windows development and runtime setup. |
 | [AGENTS.md](AGENTS.md) | Repository instructions for Codex and other coding agents. |
 | [GOALS-INDEX.md](GOALS-INDEX.md) | Phase dependency map, milestone summary, and release gates. |
-| [docs/architecture.md](docs/architecture.md) | Phase 00 component boundaries and authority model. |
+| [docs/architecture.md](docs/architecture.md) | Phase 01 component boundaries, setup ownership, and authority model. |
 | [docs/adr/](docs/adr/README.md) | Accepted architecture and compatibility decisions. |
 | [phases/PHASE-00-FOUNDATION.md](phases/PHASE-00-FOUNDATION.md) | Product decisions, repository skeleton, and engineering baseline. |
 | [phases/PHASE-01-SETUP-AND-DOCTOR.md](phases/PHASE-01-SETUP-AND-DOCTOR.md) | Repeatable Windows setup and environment diagnostics. |
@@ -40,7 +40,7 @@ ttd-arena run `
   --scenario scenarios/road-profit-v1.yaml `
   --provider deepseek `
   --model <model-id> `
-  --key-ref credman:deepseek `
+  --key-ref credman:OpenTTDModelArena/DeepSeek `
   --runs 5 `
   --record
 
@@ -54,7 +54,7 @@ ttd-arena tournament `
 
 The product is complete when a clean Windows machine can install the prerequisites, pass `ttd-arena doctor`, execute a full unattended tournament, recover from individual run failures, and produce synchronized videos, decision logs, final savegames, immutable manifests, and statistically comparable scores without manual interaction.
 
-## Phase 00 quality gate
+## Phase 01 quality gate
 
 On a machine with the .NET 8 SDK and Node.js 20 or later:
 
@@ -66,6 +66,7 @@ dotnet build OpenTTD.ModelArena.sln -c Debug --no-restore
 dotnet test OpenTTD.ModelArena.sln -c Debug --no-build
 npm ci --prefix src/Arena.Overlay
 npm test --prefix src/Arena.Overlay
+npm run build --prefix src/Arena.Overlay
 ```
 
-`pwsh ./scripts/test-all.ps1` runs the same foundation gate on the supported Windows host.
+`pwsh ./scripts/test-all.ps1` runs the same quality gate on the supported Windows host. See [SETUP.md](SETUP.md) for bootstrap, Credential Manager, OBS, and Windows doctor verification.

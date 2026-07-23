@@ -12,4 +12,4 @@ This document maps the Foundation acceptance criteria to repository evidence. It
 | Architecture decisions are deliberate | Six accepted ADRs in `docs/adr/`. |
 | Replay testing does not need a paid provider | `IModelProvider`, `ReplayModelProvider`, sanitized fixture guidance, and C#/Node tests. |
 
-The remaining Phase 00 exit-condition evidence is an accepted architecture review and successful execution of these gates on the supported Windows host. The initial CI workflow supplies the Windows verification path; Phase 01 may not begin until that review accepts the decisions in `docs/adr/`.
+Phase 00 closed after the accepted architecture review and Windows quality-gate path were approved. Its evidence remains historical; Phase 01 implementation and verification are documented separately in [phase-01-acceptance.md](phase-01-acceptance.md).

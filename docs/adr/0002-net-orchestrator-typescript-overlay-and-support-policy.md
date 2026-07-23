@@ -11,7 +11,7 @@ The platform needs a Windows-native process supervisor and credential boundary, 
 
 - Production orchestration and shared contracts target .NET 8.
 - The overlay is a TypeScript web project and remains a projection of authoritative run state.
-- The Phase 00 supported host is 64-bit Windows 11. Windows 10 is not a supported production host until a later ADR and CI matrix prove it.
+- The supported host is 64-bit Windows 11. Windows 10 is not a supported production host until a later ADR and CI matrix prove it.
 - The initial compatibility floor is OpenTTD 14.0 and OBS Studio 28.0 with WebSocket 5.x. The Phase 01 doctor will verify the installed versions and later release ADRs will publish a tested matrix.
 - Application releases use Semantic Versioning. Versioned contracts retain their meaning within a major version; incompatible changes create a new schema/contract major and migration path.
 - Provider adapters run in-process initially behind `IModelProvider`. They may not leak provider SDK types into shared contracts. A future worker boundary requires an ADR and a compatibility-preserving transport contract.

@@ -14,6 +14,22 @@ public static class ArenaErrorCodes
     public const string ObsRecordingFailed = "ARENA-OBS-RECORDING-FAILED";
     public const string ArtifactVerificationFailed = "ARENA-ARTIFACT-VERIFICATION-FAILED";
     public const string PathOutsideRunRoot = "ARENA-STORAGE-PATH-OUTSIDE-RUN-ROOT";
+    public const string ConfigurationInvalid = "ARENA-CONFIG-INVALID";
+    public const string ConfigurationSecretDetected = "ARENA-CONFIG-SECRET-DETECTED";
+    public const string CredentialReferenceInvalid = "ARENA-CREDENTIAL-REFERENCE-INVALID";
+    public const string CredentialMissing = "ARENA-CREDENTIAL-MISSING";
+    public const string CredentialStoreUnavailable = "ARENA-CREDENTIAL-STORE-UNAVAILABLE";
+    public const string RuntimeLayoutInvalid = "ARENA-RUNTIME-LAYOUT-INVALID";
+    public const string DoctorPrerequisiteFailed = "ARENA-DOCTOR-PREREQUISITE-FAILED";
+    public const string DoctorCheckPassed = "ARENA-DOCTOR-CHECK-PASSED";
+    public const string DoctorDeferred = "ARENA-DOCTOR-DEFERRED";
+    public const string DoctorPathNotWritable = "ARENA-DOCTOR-PATH-NOT-WRITABLE";
+    public const string DoctorPortUnavailable = "ARENA-DOCTOR-PORT-UNAVAILABLE";
+    public const string DoctorDiskSpaceLow = "ARENA-DOCTOR-DISK-SPACE-LOW";
+    public const string ObsTemplateInvalid = "ARENA-OBS-TEMPLATE-INVALID";
+    public const string ObsWebSocketUnavailable = "ARENA-OBS-WEBSOCKET-UNAVAILABLE";
+    public const string ObsAuthenticationFailed = "ARENA-OBS-AUTHENTICATION-FAILED";
+    public const string ObsSceneRequirementsMissing = "ARENA-OBS-SCENE-REQUIREMENTS-MISSING";
 }
 
 public sealed record ArenaError(

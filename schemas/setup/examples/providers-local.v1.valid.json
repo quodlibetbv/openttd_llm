@@ -1,0 +1,13 @@
+{
+  "config_version": 1,
+  "providers": {
+    "deepseek": {
+      "type": "deepseek",
+      "base_url": "https://api.deepseek.com",
+      "credential_ref": "credman:OpenTTDModelArena/DeepSeek"
+    },
+    "replay": {
+      "type": "replay"
+    }
+  }
+}
