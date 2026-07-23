@@ -6,7 +6,7 @@ Each phase produces a demonstrable increment with explicit exit criteria. A phas
 
 ## Current status
 
-Phase 00 — Foundation is active. All later phase documents define planned deliverables and must not be read as implemented behavior.
+Phase 00 — Foundation and Phase 01 — Setup and Doctor are complete. All Phase 02-and-later documents define planned deliverables and must not be read as implemented behavior.
 
 ## Milestone summary
 

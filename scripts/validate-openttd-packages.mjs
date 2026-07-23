@@ -31,7 +31,7 @@ export function validateOpenTtdPackages() {
   }
 
   if (/AICompany|AIVehicle|AIRoad|AIRail|AIOrder|AIGroup/.test(aiMain)) {
-    errors.push("ModelProxyAI must remain inert at the Phase 00 boundary.");
+    errors.push("ModelProxyAI must remain inert at the Phase 01 boundary.");
   }
 
   return errors;
@@ -46,6 +46,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
 
     process.exitCode = 1;
   } else {
-    console.log("OpenTTD foundation package metadata is valid");
+    console.log("OpenTTD package metadata is valid for Phase 01");
   }
 }

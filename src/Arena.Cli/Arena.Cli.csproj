@@ -6,6 +6,8 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Arena.Contracts/Arena.Contracts.csproj" />
+    <ProjectReference Include="../Arena.Obs/Arena.Obs.csproj" />
     <ProjectReference Include="../Arena.Orchestrator/Arena.Orchestrator.csproj" />
+    <ProjectReference Include="../Arena.Storage/Arena.Storage.csproj" />
   </ItemGroup>
 </Project>

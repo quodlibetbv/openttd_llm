@@ -1,0 +1,21 @@
+{
+  "report_version": 1,
+  "generated_at_utc": "2026-07-23T10:00:00+00:00",
+  "checks": [
+    {
+      "id": "host",
+      "status": "pass",
+      "code": "ARENA-DOCTOR-CHECK-PASSED",
+      "summary": "Windows 11 64-bit host detected.",
+      "remediation": "No action required."
+    },
+    {
+      "id": "scenario-schema",
+      "status": "warning",
+      "code": "ARENA-DOCTOR-DEFERRED",
+      "summary": "Scenario schema validation is deferred until Phase 07.",
+      "remediation": "Do not run a benchmark in Phase 01."
+    }
+  ],
+  "has_blocking_failures": false
+}

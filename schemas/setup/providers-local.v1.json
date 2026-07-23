@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openttd-model-arena.dev/schemas/setup/providers-local.v1.json",
+  "title": "Provider local configuration v1",
+  "description": "Machine-local provider metadata. Provider values use credential references and never embed secrets.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "config_version",
+    "providers"
+  ],
+  "properties": {
+    "config_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "providers": {
+      "type": "object",
+      "maxProperties": 100,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9_-]{1,63}$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/provider"
+      }
+    }
+  },
+  "$defs": {
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "base_url": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 2048,
+          "pattern": "^https://[^/@?#]+(?::[0-9]+)?(?:/[^?#]*)?$"
+        },
+        "credential_ref": {
+          "type": "string",
+          "minLength": 27,
+          "maxLength": 264,
+          "pattern": "^credman:OpenTTDModelArena/[A-Za-z0-9._-]+$"
+        }
+      }
+    }
+  }
+}

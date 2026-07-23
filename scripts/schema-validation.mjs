@@ -31,7 +31,7 @@ function readJson(filePath) {
 
 function resolveReference(rootSchema, reference) {
   if (!reference.startsWith("#/")) {
-    throw new Error(`Only local schema references are supported in Phase 00: ${reference}`);
+    throw new Error(`Only local schema references are supported in Phase 01: ${reference}`);
   }
 
   return reference
@@ -81,6 +81,14 @@ function validateNode(value, schema, rootSchema, instancePath, errors) {
 
     validateNode(value, target, rootSchema, instancePath, errors);
     return;
+  }
+
+  if (isObject(schema.not)) {
+    const nestedErrors = [];
+    validateNode(value, schema.not, rootSchema, instancePath, nestedErrors);
+    if (nestedErrors.length === 0) {
+      errors.push(`${instancePath}: must not match the forbidden schema`);
+    }
   }
 
   if (Object.hasOwn(schema, "const") && !jsonEquals(value, schema.const)) {
@@ -152,6 +160,12 @@ function validateNode(value, schema, rootSchema, instancePath, errors) {
     }
 
     const properties = isObject(schema.properties) ? schema.properties : {};
+    if (isObject(schema.propertyNames)) {
+      for (const propertyName of propertyNames) {
+        validateNode(propertyName, schema.propertyNames, rootSchema, `${instancePath}.{propertyName}`, errors);
+      }
+    }
+
     if (Array.isArray(schema.required)) {
       for (const requiredProperty of schema.required) {
         if (!Object.hasOwn(value, requiredProperty)) {
@@ -186,7 +200,7 @@ function validateSchemaNode(schema, schemaPath, errors) {
   }
 
   if (typeof schema.$ref === "string" && !schema.$ref.startsWith("#/")) {
-    errors.push(`${schemaPath}: Phase 00 contracts may only use local references`);
+    errors.push(`${schemaPath}: Phase 01 contracts may only use local references`);
   }
 
   if (typeof schema.type === "string" && schema.type === "object" &&
@@ -216,6 +230,14 @@ function validateSchemaNode(schema, schemaPath, errors) {
 
   if (isObject(schema.additionalProperties)) {
     validateSchemaNode(schema.additionalProperties, `${schemaPath}.additionalProperties`, errors);
+  }
+
+  if (isObject(schema.propertyNames)) {
+    validateSchemaNode(schema.propertyNames, `${schemaPath}.propertyNames`, errors);
+  }
+
+  if (isObject(schema.not)) {
+    validateSchemaNode(schema.not, `${schemaPath}.not`, errors);
   }
 }
 

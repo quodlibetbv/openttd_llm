@@ -4,6 +4,9 @@
     <RootNamespace>OpenTtd.ModelArena.Orchestrator</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="YamlDotNet" Version="15.1.2" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../Arena.AdminProtocol/Arena.AdminProtocol.csproj" />
     <ProjectReference Include="../Arena.Camera/Arena.Camera.csproj" />
     <ProjectReference Include="../Arena.Contracts/Arena.Contracts.csproj" />

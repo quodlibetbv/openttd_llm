@@ -13,6 +13,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Arena.Contracts/Arena.Contracts.csproj" />
+    <ProjectReference Include="../../src/Arena.Obs/Arena.Obs.csproj" />
+    <ProjectReference Include="../../src/Arena.Orchestrator/Arena.Orchestrator.csproj" />
     <ProjectReference Include="../../src/Arena.Providers/Arena.Providers.csproj" />
     <ProjectReference Include="../../src/Arena.Storage/Arena.Storage.csproj" />
   </ItemGroup>

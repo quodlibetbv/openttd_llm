@@ -16,5 +16,21 @@ Error codes are stable, machine-readable identifiers. User-facing messages state
 | `ARENA-OBS-RECORDING-FAILED` | OBS could not safely produce the expected recording artifact. | OBS |
 | `ARENA-ARTIFACT-VERIFICATION-FAILED` | Required artifacts, hashes, or metadata could not be verified. | Storage |
 | `ARENA-STORAGE-PATH-OUTSIDE-RUN-ROOT` | A file operation attempted to escape the active run root. | Storage |
+| `ARENA-CONFIG-INVALID` | Local setup configuration is missing, malformed, unknown-field, or path-policy-invalid. | Setup |
+| `ARENA-CONFIG-SECRET-DETECTED` | A local configuration attempted to contain a raw secret-shaped field. | Setup |
+| `ARENA-CREDENTIAL-REFERENCE-INVALID` | A configuration value is not a valid Credential Manager reference or a CLI target is out of scope. | Storage |
+| `ARENA-CREDENTIAL-MISSING` | A referenced Credential Manager entry is absent or empty. | Storage |
+| `ARENA-CREDENTIAL-STORE-UNAVAILABLE` | Windows Credential Manager could not safely complete the requested operation. | Storage |
+| `ARENA-RUNTIME-LAYOUT-INVALID` | The repository-contained runtime is missing, unsafe, or could not be generated. | Setup |
+| `ARENA-DOCTOR-PREREQUISITE-FAILED` | A required host dependency or executable is absent, unreadable, or below the supported version. | Doctor |
+| `ARENA-DOCTOR-CHECK-PASSED` | A structured doctor check passed. | Doctor |
+| `ARENA-DOCTOR-DEFERRED` | A check is intentionally deferred to a later phase. | Doctor |
+| `ARENA-DOCTOR-PATH-NOT-WRITABLE` | A repository-local runtime, run, or recording directory cannot be written safely. | Doctor |
+| `ARENA-DOCTOR-PORT-UNAVAILABLE` | The configured loopback OpenTTD control port is unavailable. | Doctor |
+| `ARENA-DOCTOR-DISK-SPACE-LOW` | The recording drive is below the configured free-space threshold. | Doctor |
+| `ARENA-OBS-TEMPLATE-INVALID` | The generated OBS scene checklist/template is missing required content or cannot be written. | OBS |
+| `ARENA-OBS-WEBSOCKET-UNAVAILABLE` | OBS WebSocket could not be reached or did not provide a supported response. | OBS |
+| `ARENA-OBS-AUTHENTICATION-FAILED` | OBS WebSocket authentication is disabled, incomplete, or failed. | OBS |
+| `ARENA-OBS-SCENE-REQUIREMENTS-MISSING` | OBS authenticated but required Arena scenes or sources are absent. | OBS |
 
 New codes use `ARENA-<AREA>-<CONDITION>` and are added here with a regression test whenever they close a defect.

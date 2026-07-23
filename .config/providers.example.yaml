@@ -1,0 +1,3 @@
+# Provider configuration contains references only. Store values with credentials set.
+config_version: 1
+providers: {}
