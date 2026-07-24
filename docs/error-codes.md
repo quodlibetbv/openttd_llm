@@ -13,6 +13,16 @@ Error codes are stable, machine-readable identifiers. User-facing messages state
 | `ARENA-ACTION-CONSTRAINT-VIOLATION` | A requested action violates scenario or game-side constraints. | GameScript |
 | `ARENA-ACTION-PATH-NOT-FOUND` | Deterministic path construction found no allowed path. | GameScript |
 | `ARENA-OPENTTD-PROCESS-EXITED` | A supervised OpenTTD process exited unexpectedly. | Orchestrator |
+| `ARENA-RUN-ALLOCATION-FAILED` | The orchestrator could not reserve a unique contained run directory. | Storage |
+| `ARENA-RUN-PREPARATION-FAILED` | Isolated run templates, paths, or fixed-save preparation could not be completed safely. | Orchestrator |
+| `ARENA-RUN-STARTUP-TIMED-OUT` | A server, readiness signal, or required spectator window did not become ready before its bounded timeout. | Orchestrator |
+| `ARENA-RUN-GAMESCRIPT-NOT-READY` | ArenaGS or ModelProxyAI did not publish the expected explicit readiness signal. | Orchestrator |
+| `ARENA-RUN-SERVER-EXITED` | The supervised dedicated OpenTTD server exited unexpectedly. | Orchestrator |
+| `ARENA-RUN-SPECTATOR-EXITED` | A supervised spectator OpenTTD client exited unexpectedly. | Orchestrator |
+| `ARENA-RUN-CANCELLED` | The caller cancelled the provider-free lifecycle and the supervisor finalized available artifacts. | Orchestrator |
+| `ARENA-RUN-FINALIZATION-FAILED` | Shutdown or required final artifact preservation could not complete safely. | Orchestrator |
+| `ARENA-RUN-CONSOLE-CONTROL-FAILED` | The controlled dedicated-server console could not perform an allowed lifecycle operation. | Orchestrator |
+| `ARENA-RUN-ARTIFACT-MISSING` | A required checkpoint, final save, or other run artifact was not produced. | Orchestrator |
 | `ARENA-OBS-RECORDING-FAILED` | OBS could not safely produce the expected recording artifact. | OBS |
 | `ARENA-ARTIFACT-VERIFICATION-FAILED` | Required artifacts, hashes, or metadata could not be verified. | Storage |
 | `ARENA-STORAGE-PATH-OUTSIDE-RUN-ROOT` | A file operation attempted to escape the active run root. | Storage |

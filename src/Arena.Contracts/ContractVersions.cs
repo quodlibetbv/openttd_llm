@@ -9,4 +9,6 @@ public static class ContractVersions
     public const string GoalV1 = "1.0";
     public const string ScoreV1 = "1.0";
     public const string RunManifestV1 = "1.0";
+    public const string RunLifecycleV1 = "1.0";
+    public const string RunResultV1 = "1.0";
 }

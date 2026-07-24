@@ -1,6 +1,7 @@
 class ModelProxyAIInfo extends AIInfo {
     function GetAuthor()      { return "OpenTTD Model Arena"; }
     function GetName()        { return "ModelProxyAI"; }
+    function GetShortName()   { return "MPAI"; }
     function GetDescription() { return "Inert benchmark-company ownership proxy."; }
     function GetVersion()     { return 1; }
     function GetDate()        { return "2026-07-23"; }

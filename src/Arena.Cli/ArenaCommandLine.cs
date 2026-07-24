@@ -23,8 +23,13 @@ public static class ArenaCommandLine
         {
             if (args.Length == 1 && string.Equals(args[0], "--version", StringComparison.Ordinal))
             {
-                Console.WriteLine("ttd-arena 0.1.0 (Phase 01 setup and doctor)");
+                Console.WriteLine("ttd-arena 0.2.0 (Phase 02 reproducible game run)");
                 return 0;
+            }
+
+            if (args.Length > 0 && string.Equals(args[0], "__console-bridge", StringComparison.Ordinal))
+            {
+                return WindowsDedicatedConsoleBridge.Run(args.Skip(1).ToArray());
             }
 
             if (args.Length == 0 || IsHelp(args[0]))
@@ -38,6 +43,7 @@ public static class ArenaCommandLine
             {
                 "bootstrap" => await RunBootstrapAsync(repositoryRoot, args[1..], cancellationToken),
                 "doctor" => await RunDoctorAsync(repositoryRoot, args[1..], cancellationToken),
+                "smoke" => await RunSmokeAsync(repositoryRoot, args[1..], cancellationToken),
                 "credentials" => await RunCredentialsAsync(repositoryRoot, args[1..], cancellationToken),
                 _ => UnknownCommand(args[0]),
             };
@@ -152,6 +158,82 @@ public static class ArenaCommandLine
             "list" => await ListCredentialsAsync(arguments.Skip(1).ToArray(), cancellationToken),
             "test" => await TestCredentialAsync(repositoryRoot, arguments.Skip(1).ToArray(), cancellationToken),
             _ => UnknownCommand($"credentials {arguments[0]}"),
+        };
+    }
+
+    private static async Task<int> RunSmokeAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (!TryParseOptions(
+                arguments,
+                ["--config", "--duration-seconds", "--startup-timeout-seconds", "--shutdown-timeout-seconds", "--json"],
+                out CliOptions options))
+        {
+            return WriteUsageError(options.ErrorMessage);
+        }
+
+        if (options.Positionals.Count > 0)
+        {
+            return WriteUsageError("smoke does not accept positional arguments.");
+        }
+
+        ArenaConfigurationLoadResult configurationResult = await ArenaConfigurationLoader.LoadArenaAsync(
+            repositoryRoot,
+            ResolveRepositoryOptionPath(repositoryRoot, options, "--config", ".config/arena.local.yaml"),
+            cancellationToken);
+        if (!configurationResult.Succeeded || configurationResult.Configuration is null)
+        {
+            foreach (ConfigurationValidationError error in configurationResult.Errors)
+            {
+                Console.Error.WriteLine($"{error.Code}: {SecretRedactor.Redact(error.Message)}");
+            }
+
+            return 2;
+        }
+
+        if (!TryGetBoundedSeconds(options, "--duration-seconds", 10, 0, 300, out int runDurationSeconds) ||
+            !TryGetBoundedSeconds(options, "--startup-timeout-seconds", 60, 5, 300, out int startupTimeoutSeconds) ||
+            !TryGetBoundedSeconds(options, "--shutdown-timeout-seconds", 15, 2, 120, out int shutdownTimeoutSeconds))
+        {
+            return WriteUsageError("Smoke timeouts must be whole seconds within the documented Phase 02 bounds.");
+        }
+
+        Phase02RunService service = new(
+            new RunDirectoryAllocator(),
+            new SystemArenaProcessFactory(),
+            new CliOpenTtdConsoleBridge(),
+            new TcpLoopbackReadinessProbe());
+        ArenaRunResult result = await service.RunSmokeAsync(
+            configurationResult.Configuration,
+            new Phase02SmokeOptions(
+                TimeSpan.FromSeconds(startupTimeoutSeconds),
+                TimeSpan.FromSeconds(runDurationSeconds),
+                TimeSpan.FromSeconds(shutdownTimeoutSeconds)),
+            cancellationToken);
+
+        if (options.Flags.Contains("--json"))
+        {
+            Console.WriteLine(JsonSerializer.Serialize(result, DoctorJsonOptions));
+        }
+        else
+        {
+            string runDirectory = Path.Combine(configurationResult.Configuration.Runtime.Runs, result.RunId);
+            Console.WriteLine($"Phase 02 smoke {result.FinalState.ToString().ToLowerInvariant()} ({result.ExitReason.ToString().ToLowerInvariant()}).");
+            Console.WriteLine($"  run: {runDirectory}");
+            Console.WriteLine($"  result: {Path.Combine(runDirectory, "run-result.json")}");
+            if (result.ErrorCode is not null)
+            {
+                Console.WriteLine($"  error: {result.ErrorCode}");
+            }
+        }
+
+        return result.FinalState switch
+        {
+            ArenaRunState.Completed => 0,
+            ArenaRunState.Cancelled => 130,
+            _ => 2,
         };
     }
 
@@ -429,6 +511,29 @@ public static class ArenaCommandLine
         return CredentialReference.TryParse(CredentialReference.SchemePrefix + target, out reference);
     }
 
+    private static bool TryGetBoundedSeconds(
+        CliOptions options,
+        string optionName,
+        int defaultValue,
+        int minimum,
+        int maximum,
+        out int value)
+    {
+        value = defaultValue;
+        if (!options.Values.TryGetValue(optionName, out string? supplied))
+        {
+            return true;
+        }
+
+        return int.TryParse(
+                   supplied,
+                   System.Globalization.NumberStyles.None,
+                   System.Globalization.CultureInfo.InvariantCulture,
+                   out value) &&
+            value >= minimum &&
+            value <= maximum;
+    }
+
     private static char[]? ReadSecretFromConsole()
     {
         if (Console.IsInputRedirected)
@@ -524,9 +629,10 @@ public static class ArenaCommandLine
 
     private static void WriteHelp()
     {
-        Console.WriteLine("OpenTTD Model Arena Phase 01 setup commands:");
+        Console.WriteLine("OpenTTD Model Arena Phase 02 commands:");
         Console.WriteLine("  ttd-arena bootstrap [--config <path>] [--providers-config <path>] [--openttd-source <directory>]");
         Console.WriteLine("  ttd-arena doctor [--config <path>] [--providers-config <path>] [--json] [--verbose]");
+        Console.WriteLine("  ttd-arena smoke [--config <path>] [--duration-seconds <0-300>] [--startup-timeout-seconds <5-300>] [--shutdown-timeout-seconds <2-120>] [--json]");
         Console.WriteLine("  ttd-arena credentials set OpenTTDModelArena/<name>");
         Console.WriteLine("  ttd-arena credentials test <provider-id|OpenTTDModelArena/name> [--providers-config <path>]");
         Console.WriteLine("  ttd-arena credentials list");

@@ -31,7 +31,7 @@ function readJson(filePath) {
 
 function resolveReference(rootSchema, reference) {
   if (!reference.startsWith("#/")) {
-    throw new Error(`Only local schema references are supported in Phase 01: ${reference}`);
+    throw new Error(`Only local schema references are supported in Phase 02: ${reference}`);
   }
 
   return reference
@@ -200,7 +200,7 @@ function validateSchemaNode(schema, schemaPath, errors) {
   }
 
   if (typeof schema.$ref === "string" && !schema.$ref.startsWith("#/")) {
-    errors.push(`${schemaPath}: Phase 01 contracts may only use local references`);
+    errors.push(`${schemaPath}: Phase 02 contracts may only use local references`);
   }
 
   if (typeof schema.type === "string" && schema.type === "object" &&

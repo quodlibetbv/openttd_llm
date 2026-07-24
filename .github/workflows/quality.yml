@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   quality:
-    name: Phase 01 quality gate
+    name: Phase 02 quality gate
     runs-on: windows-latest
     steps:
       - name: Check out source
@@ -66,7 +66,7 @@ jobs:
       - name: Run .NET contract tests
         run: dotnet test OpenTTD.ModelArena.sln -c Debug --no-build
 
-      - name: Verify Phase 01 CLI surface
+      - name: Verify Phase 02 CLI surface
         run: dotnet run --project src/Arena.Cli/Arena.Cli.csproj -c Debug --no-build -- --version
 
       - name: Install, test, and build overlay scaffold
