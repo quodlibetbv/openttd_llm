@@ -32,7 +32,7 @@ export function checkArchitecture() {
   const providerReferences = [...providerProject.matchAll(/<ProjectReference\s+Include="([^"]+)"/g)]
     .map((match) => match[1].toLowerCase());
   if (providerReferences.some((reference) => !reference.endsWith("arena.contracts/arena.contracts.csproj"))) {
-    errors.push("Arena.Providers may reference only Arena.Contracts at the Phase 02 lifecycle boundary.");
+    errors.push("Arena.Providers may reference only Arena.Contracts at the Phase 03 protocol boundary.");
   }
 
   for (const forbiddenReference of ["arena.adminprotocol", "arena.orchestrator", "arena.camera", "arena.obs", "openttd"]) {
@@ -62,6 +62,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
 
     process.exitCode = 1;
   } else {
-    console.log("architecture boundaries are closed for Phase 02");
+    console.log("architecture boundaries are closed for Phase 03");
   }
 }

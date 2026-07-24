@@ -8,6 +8,17 @@ public static class ArenaErrorCodes
     public const string ProviderReplayObservationMismatch = "ARENA-PROVIDER-REPLAY-OBSERVATION-MISMATCH";
     public const string ProtocolVersionMismatch = "ARENA-PROTOCOL-VERSION-MISMATCH";
     public const string ProtocolInvalidMessage = "ARENA-PROTOCOL-INVALID-MESSAGE";
+    public const string ProtocolMessageTooLarge = "ARENA-PROTOCOL-MESSAGE-TOO-LARGE";
+    public const string ProtocolChunkInvalid = "ARENA-PROTOCOL-CHUNK-INVALID";
+    public const string ProtocolChunkTimeout = "ARENA-PROTOCOL-CHUNK-TIMEOUT";
+    public const string ProtocolStaleCorrelation = "ARENA-PROTOCOL-STALE-CORRELATION";
+    public const string AdminPortUnavailable = "ARENA-ADMINPORT-UNAVAILABLE";
+    public const string AdminPortAuthenticationFailed = "ARENA-ADMINPORT-AUTHENTICATION-FAILED";
+    public const string AdminPortProtocolIncompatible = "ARENA-ADMINPORT-PROTOCOL-INCOMPATIBLE";
+    public const string AdminPortQueueFull = "ARENA-ADMINPORT-QUEUE-FULL";
+    public const string AdminPortRequestTimedOut = "ARENA-ADMINPORT-REQUEST-TIMED-OUT";
+    public const string AdminPortReconnectFailed = "ARENA-ADMINPORT-RECONNECT-FAILED";
+    public const string AdminPortSecretInvalid = "ARENA-ADMINPORT-SECRET-INVALID";
     public const string ActionConstraintViolation = "ARENA-ACTION-CONSTRAINT-VIOLATION";
     public const string ActionPathNotFound = "ARENA-ACTION-PATH-NOT-FOUND";
     public const string OpenTtdProcessExited = "ARENA-OPENTTD-PROCESS-EXITED";

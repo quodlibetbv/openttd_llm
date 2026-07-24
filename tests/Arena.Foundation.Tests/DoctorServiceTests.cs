@@ -21,7 +21,8 @@ public sealed class DoctorServiceTests
         Assert.Contains(report.Checks, check => check.Id == "scenario-schema" && check.Status == DoctorCheckStatus.Warning);
         DoctorCheckResult adminPortWarning = Assert.Single(report.Checks, check => check.Id == "adminport-handshake");
         Assert.Equal(DoctorCheckStatus.Warning, adminPortWarning.Status);
-        Assert.Contains("Phase 02 smoke", adminPortWarning.Remediation, StringComparison.Ordinal);
+        Assert.Contains("bridge-smoke", adminPortWarning.Remediation, StringComparison.Ordinal);
+        Assert.Contains(report.Checks, check => check.Id == "credential.adminport" && check.Status == DoctorCheckStatus.Pass);
         Assert.Contains(report.Checks, check => check.Id == "obs.websocket" && check.Status == DoctorCheckStatus.Pass);
     }
 
@@ -163,6 +164,11 @@ public sealed class DoctorServiceTests
             throw new InvalidOperationException("Test credential reference did not parse.");
         }
 
+        if (!CredentialReference.TryParse("credman:OpenTTDModelArena/AdminPort", out CredentialReference? adminCredential) || adminCredential is null)
+        {
+            throw new InvalidOperationException("Test AdminPort credential reference did not parse.");
+        }
+
         return new ArenaLocalConfiguration(
             directory.Path,
             Path.Combine(directory.Path, ".config", "arena.local.yaml"),
@@ -171,7 +177,8 @@ public sealed class DoctorServiceTests
                 Path.Combine(openttdRoot, "openttd.exe"),
                 Path.Combine(openttdRoot, "server.cfg"),
                 Path.Combine(openttdRoot, "spectator.cfg"),
-                3977),
+                3977,
+                adminCredential),
             new ObsLocalConfiguration("127.0.0.1", 4455, credential, "OpenTTD Model Arena", "obs64"),
             new NetworkLocalConfiguration("127.0.0.1"),
             new LoggingLocalConfiguration("Information", true),

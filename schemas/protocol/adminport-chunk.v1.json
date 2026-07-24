@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openttd-model-arena.dev/schemas/protocol/adminport-chunk.v1.json",
+  "title": "Arena AdminPort chunk envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_version",
+    "message_type",
+    "run_id",
+    "message_id",
+    "correlation_id",
+    "idempotency_key",
+    "payload"
+  ],
+  "properties": {
+    "protocol_version": {
+      "const": "1.0"
+    },
+    "message_type": {
+      "const": "chunk"
+    },
+    "run_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "message_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "correlation_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "idempotency_key": {
+      "$ref": "#/$defs/identifier"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transfer_id",
+        "logical_message_type",
+        "logical_message_id",
+        "logical_correlation_id",
+        "logical_idempotency_key",
+        "sequence",
+        "total_chunks",
+        "logical_bytes",
+        "encoding",
+        "checksum",
+        "data"
+      ],
+      "properties": {
+        "transfer_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "logical_message_type": {
+          "type": "string",
+          "enum": [
+            "hello",
+            "capabilities",
+            "heartbeat",
+            "pause_request",
+            "pause_result",
+            "resume_request",
+            "resume_result",
+            "snapshot_request",
+            "snapshot_result",
+            "action_request",
+            "action_progress",
+            "action_result",
+            "camera_request",
+            "camera_result",
+            "checkpoint_request",
+            "checkpoint_result",
+            "finalize_request",
+            "finalize_result",
+            "error"
+          ]
+        },
+        "logical_message_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "logical_correlation_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "logical_idempotency_key": {
+          "$ref": "#/$defs/identifier"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 47
+        },
+        "total_chunks": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 48
+        },
+        "logical_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12288
+        },
+        "encoding": {
+          "const": "base64_utf8"
+        },
+        "checksum": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}$"
+        },
+        "data": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    }
+  }
+}

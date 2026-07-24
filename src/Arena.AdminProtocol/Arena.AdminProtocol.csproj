@@ -4,6 +4,9 @@
     <RootNamespace>OpenTtd.ModelArena.AdminProtocol</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.4.0" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../Arena.Contracts/Arena.Contracts.csproj" />
   </ItemGroup>
 </Project>

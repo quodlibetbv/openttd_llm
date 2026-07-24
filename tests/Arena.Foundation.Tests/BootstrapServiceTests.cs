@@ -10,9 +10,13 @@ public sealed class BootstrapServiceTests
     public async Task IsIdempotentAndDoesNotOverwriteAnExistingLocalConfiguration()
     {
         using TemporaryDirectory directory = new();
-        directory.WriteFile(".config/arena.example.yaml", ArenaConfigurationLoaderTests.ValidArenaConfiguration());
+        string legacyArenaConfiguration = ArenaConfigurationLoaderTests.ValidArenaConfiguration().Replace(
+            "  admin_credential_ref: credman:OpenTTDModelArena/AdminPort\n",
+            string.Empty,
+            StringComparison.Ordinal);
+        directory.WriteFile(".config/arena.example.yaml", legacyArenaConfiguration);
         directory.WriteFile(".config/providers.example.yaml", "config_version: 1\nproviders: {}\n");
-        directory.WriteFile(".config/arena.local.yaml", ArenaConfigurationLoaderTests.ValidArenaConfiguration().Replace(
+        directory.WriteFile(".config/arena.local.yaml", legacyArenaConfiguration.Replace(
             "level: Information",
             "level: Debug",
             StringComparison.Ordinal));
@@ -22,7 +26,10 @@ public sealed class BootstrapServiceTests
         directory.WriteFile("openttd/ai/ModelProxyAI/main.nut", "class ModelProxyAI {}");
         directory.WriteFile("openttd/ai/ModelProxyAI/info.nut", "ModelProxyAI function GetShortName() { return \"MPAI\"; } function GetAPIVersion() { return \"1.0\"; } RegisterAI");
         string localConfigurationPath = Path.Combine(directory.Path, ".config", "arena.local.yaml");
-        string expectedLocalConfiguration = File.ReadAllText(localConfigurationPath);
+        string expectedLocalConfiguration = File.ReadAllText(localConfigurationPath).Replace(
+            "admin_port: 3977",
+            "admin_port: 3977\n  admin_credential_ref: credman:OpenTTDModelArena/AdminPort",
+            StringComparison.Ordinal);
 
         BootstrapRequest request = new(
             directory.Path,
@@ -35,6 +42,7 @@ public sealed class BootstrapServiceTests
         Assert.True(first.Succeeded);
         Assert.True(second.Succeeded);
         Assert.Equal(expectedLocalConfiguration, File.ReadAllText(localConfigurationPath));
+        Assert.Contains("Phase 03 AdminPort credential reference", first.CreatedOrUpdated);
         string generatedConfiguration = File.ReadAllText(Path.Combine(directory.Path, ".runtime", "openttd", "openttd.cfg"));
         Assert.Contains("resolution = 2560,1440", generatedConfiguration, StringComparison.Ordinal);
         Assert.Contains("gui_scale = 100", generatedConfiguration, StringComparison.Ordinal);

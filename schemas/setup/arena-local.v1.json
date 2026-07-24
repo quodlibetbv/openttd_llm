@@ -52,7 +52,8 @@
         "executable",
         "server_config",
         "spectator_config",
-        "admin_port"
+        "admin_port",
+        "admin_credential_ref"
       ],
       "properties": {
         "executable": {
@@ -77,6 +78,12 @@
           "not": {
             "const": 3979
           }
+        },
+        "admin_credential_ref": {
+          "type": "string",
+          "minLength": 27,
+          "maxLength": 264,
+          "pattern": "^credman:OpenTTDModelArena/[A-Za-z0-9._-]+$"
         }
       }
     },

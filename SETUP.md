@@ -1,6 +1,6 @@
 # Windows Setup Guide
 
-> Status: Phases 01 and 02 are implemented. Setup provisions and diagnoses the repository-local runtime; Phase 02 can also launch a provider-free isolated OpenTTD smoke lifecycle. AdminPort gameplay commands, provider calls, recording, scoring, and benchmark scenarios remain later phases.
+> Status: Phases 01–03 are implemented. Setup provisions and diagnoses the repository-local runtime; Phase 02 launches the provider-free lifecycle smoke, and Phase 03 verifies an authenticated AdminPort/GameScript bridge. Rich observations, provider calls, route construction, recording, scoring, and benchmark scenarios remain later phases.
 
 ## Supported host
 
@@ -41,7 +41,7 @@ cd openttd-model-arena
 pwsh ./scripts/bootstrap.ps1 -OpenTtdSource "C:\Program Files\OpenTTD"
 ```
 
-Bootstrap is safe to run again. It restores/builds the repository, builds the overlay, creates runtime directories, copies the Arena packages, writes generated runtime configuration, and creates local config only when it does not already exist. It never overwrites `.config/*.local.yaml`, never creates, changes, or reads a credential value, and excludes OpenTTD profile configuration (including `private.cfg` and `secrets.cfg`) from the isolated copy.
+Bootstrap is safe to run again. It restores/builds the repository, builds the overlay, creates runtime directories, copies the Arena packages, writes generated runtime configuration, and creates local config only when it does not already exist. It preserves existing local settings; the only versioned migration is insertion of the non-secret `openttd.admin_credential_ref` when a Phase 02 configuration lacks it. It never creates, changes, or reads a credential value, and excludes OpenTTD profile configuration (including `private.cfg` and `secrets.cfg`) from the isolated copy.
 
 The generated OpenTTD configuration fixes English language, 2560×1440 resolution, 100% GUI scale, a bounded 10-minute autosave policy, local server discovery, and loopback control binding. Scenario-specific simulation semantics and content policy remain later versioned concerns; bootstrap does not choose a benchmark map, goal, or score setting.
 
@@ -86,6 +86,7 @@ openttd:
   server_config: .runtime/openttd/server.cfg
   spectator_config: .runtime/openttd/spectator.cfg
   admin_port: 3977
+  admin_credential_ref: credman:OpenTTDModelArena/AdminPort
 
 obs:
   host: 127.0.0.1
@@ -137,6 +138,7 @@ The CLI accepts a credential value only through an interactive hidden prompt. It
 
 ```powershell
 pwsh ./scripts/ttd-arena.ps1 credentials set OpenTTDModelArena/OBS
+pwsh ./scripts/ttd-arena.ps1 credentials set OpenTTDModelArena/AdminPort
 pwsh ./scripts/ttd-arena.ps1 credentials list
 pwsh ./scripts/ttd-arena.ps1 credentials remove OpenTTDModelArena/OBS
 ```
@@ -148,6 +150,10 @@ pwsh ./scripts/ttd-arena.ps1 credentials test deepseek
 ```
 
 You can test a dedicated managed target directly, for example `credentials test OpenTTDModelArena/OBS`. `credentials test` verifies only Credential Manager metadata. Remote provider authentication is deliberately deferred to Phase 05.
+
+`OpenTTDModelArena/AdminPort` is a separate OpenTTD-only credential. Enter it through the same hidden prompt; do not reuse OBS or a provider password. OpenTTD's generated `secrets.cfg` policy requires 1–31 printable ASCII characters with no spaces, `=`, `;`, or `#`. Bootstrap migrates a pre-Phase-03 local configuration by inserting the reference only; it never writes or reads the credential value.
+
+OpenTTD 15 and later use the native secure PAKE login automatically. The bridge permits the older password-only flow only for a detected OpenTTD 14.x executable; there is no configuration switch that can downgrade a 15+ server.
 
 ## OBS setup
 
@@ -206,7 +212,7 @@ Phase 01 doctor blocks on:
 - insufficient recording disk space; and
 - invalid local configuration.
 
-Each blocking item includes a remediation. Warnings identify intentional phase boundaries: scenario schemas arrive in Phase 07, AdminPort handshake arrives in Phase 03, and live provider authentication arrives in Phase 05. A warning is not a successful benchmark check.
+Each blocking item includes a remediation. Warnings identify intentional phase boundaries: scenario schemas arrive in Phase 07, authenticated AdminPort handshake is exercised by the live Phase 03 bridge smoke, and live provider authentication arrives in Phase 05. A warning is not a successful benchmark check.
 
 ### Verify predictable failure handling
 
@@ -313,6 +319,30 @@ Get-NetTCPConnection -State Listen -LocalPort 3979 -ErrorAction SilentlyContinue
 
 Expect `completed` for both result fields, at least the copied starting, checkpoint, and final save artifacts, and no output from the final three cleanup checks. For the complete requirement map, cancellation check, and five-sequential-run procedure, see [Phase 02 acceptance evidence](docs/phase-02-acceptance.md).
 
+## Run the provider-free Phase 03 bridge smoke
+
+After bootstrap has migrated the local configuration and you have created the dedicated AdminPort credential, run the real authenticated protocol proof:
+
+```powershell
+pwsh ./scripts/bridge-smoke.ps1
+```
+
+The equivalent direct CLI command is:
+
+```powershell
+pwsh ./scripts/ttd-arena.ps1 bridge-smoke
+```
+
+This starts a temporary isolated dedicated server, writes its AdminPort password only to the run-local OpenTTD `secrets.cfg`, and then proves the version gate, shared valid/invalid protocol fixtures, capabilities, heartbeat, stale-run handling, pause/resume, deferred typed boundaries, idempotency, 10 KiB chunk transfer, and finalization. It deletes that secret file before writing `bridge-result.json`. The bridge has been live-verified against OpenTTD 14.1 and 15.3; rerun this command after any OpenTTD upgrade.
+
+Expect:
+
+```text
+Phase 03 bridge smoke completed.
+```
+
+The bridge smoke has no spectator window, OBS scene switch, or recording by design. For visual validation, run the separate Phase 02 smoke and observe its three spectator windows. Inspect the latest `bridge-*` run with the commands in [Phase 03 acceptance evidence](docs/phase-03-acceptance.md).
+
 ## Build and test
 
 Run the canonical repository quality gate on the supported Windows host:
@@ -321,7 +351,7 @@ Run the canonical repository quality gate on the supported Windows host:
 pwsh ./scripts/test-all.ps1
 ```
 
-It runs schema, formatting, architecture, secret, OpenTTD package, .NET unit, CLI version, and overlay test/build checks. CI additionally parses every setup PowerShell script on Windows. `test-all.ps1` does not start OpenTTD, connect to OBS, or call a provider; run the explicit Phase 02 smoke above for live lifecycle evidence.
+It runs schema, formatting, architecture, secret, OpenTTD package, .NET unit, CLI version, and overlay test/build checks. CI additionally parses every setup PowerShell script on Windows. `test-all.ps1` does not start OpenTTD, connect to OBS, or call a provider; run the explicit Phase 02 and Phase 03 smokes above for live evidence.
 
 ## Cleanup
 
@@ -335,11 +365,11 @@ It removes only disposable build outputs, `.runtime/cache`, `.runtime/temp`, `.t
 
 ## Current boundary
 
-Phases 01–02 make a Windows host repeatable, diagnosable, and capable of a provider-free isolated smoke lifecycle. The following commands are not implemented yet and must not be treated as benchmark verification:
+Phases 01–03 make a Windows host repeatable, diagnosable, capable of a provider-free isolated lifecycle smoke, and able to exchange authenticated versioned messages with ArenaGS. The following commands are not implemented yet and must not be treated as benchmark verification:
 
 - `ttd-arena run`
 - `ttd-arena verify-run`
-- AdminPort gameplay command execution or detailed game observation
+- detailed game observation or gameplay route execution
 - provider model requests
 - OBS scene switching or recording
 

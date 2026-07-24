@@ -12,6 +12,7 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../../src/Arena.AdminProtocol/Arena.AdminProtocol.csproj" />
     <ProjectReference Include="../../src/Arena.Contracts/Arena.Contracts.csproj" />
     <ProjectReference Include="../../src/Arena.Obs/Arena.Obs.csproj" />
     <ProjectReference Include="../../src/Arena.Orchestrator/Arena.Orchestrator.csproj" />
@@ -20,5 +21,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="../fixtures/providers/*.json" Link="fixtures/providers/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../schemas/protocol/examples/phase03-adminport-fixtures.v1.json" Link="fixtures/protocol/phase03-adminport-fixtures.v1.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

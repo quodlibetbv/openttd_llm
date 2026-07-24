@@ -27,8 +27,14 @@ export function validateOpenTtdPackages() {
       !/function Start\(\)/.test(gameMain) ||
       !/function Save\(\)/.test(gameMain) ||
       !/function Load\(/.test(gameMain) ||
-      !/ARENA_PHASE02_GAMESCRIPT_READY/.test(gameMain)) {
-    errors.push("ArenaGS must expose the Phase 02 persisted readiness entry points.");
+      !/ARENA_PHASE02_GAMESCRIPT_READY/.test(gameMain) ||
+      !/GSEventAdminPort\.Convert\(event\)\.GetObject\(\)/.test(gameMain) ||
+      !/GSAdmin\.Send\(/.test(gameMain) ||
+      !/PROTOCOL_VERSION = "1\.0"/.test(gameMain) ||
+      !/function ReplayLedgerResult\(/.test(gameMain) ||
+      !/function AcceptChunk\(/.test(gameMain) ||
+      !/ARENA-PROTOCOL-CHUNK-TIMEOUT/.test(gameMain)) {
+    errors.push("ArenaGS must expose the Phase 03 persisted AdminPort protocol boundary.");
   }
 
   if (!/class ModelProxyAIInfo extends AIInfo/.test(aiInfo) || !/RegisterAI\(ModelProxyAIInfo\(\)\);/.test(aiInfo)) {
@@ -64,6 +70,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
 
     process.exitCode = 1;
   } else {
-    console.log("OpenTTD package metadata is valid for Phase 02");
+    console.log("OpenTTD package metadata is valid for Phase 03");
   }
 }

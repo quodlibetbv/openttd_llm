@@ -37,7 +37,8 @@
         "checkpoint_result",
         "finalize_request",
         "finalize_result",
-        "error"
+        "error",
+        "chunk"
       ]
     },
     "run_id": {

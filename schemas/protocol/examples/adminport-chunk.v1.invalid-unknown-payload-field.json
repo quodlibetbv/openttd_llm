@@ -1,0 +1,22 @@
+{
+  "protocol_version": "1.0",
+  "message_type": "chunk",
+  "run_id": "run-20260724-01",
+  "message_id": "chunk-transfer-01-00",
+  "correlation_id": "correlation-01",
+  "idempotency_key": "key-01",
+  "payload": {
+    "transfer_id": "transfer-01",
+    "logical_message_type": "snapshot_request",
+    "logical_message_id": "snapshot-01",
+    "logical_correlation_id": "correlation-01",
+    "logical_idempotency_key": "key-01",
+    "sequence": 0,
+    "total_chunks": 1,
+    "logical_bytes": 2,
+    "encoding": "base64_utf8",
+    "checksum": "02ce0106",
+    "data": "e30=",
+    "extra": true
+  }
+}

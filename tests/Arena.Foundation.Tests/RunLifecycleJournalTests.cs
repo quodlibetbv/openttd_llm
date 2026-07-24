@@ -41,4 +41,23 @@ public sealed class RunLifecycleJournalTests
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await journal.TransitionAsync(ArenaRunState.Running, timestamp, null, null, null, null, CancellationToken.None));
     }
+
+    [Fact]
+    public async Task AllowsAProtocolOnlyRunToBecomeReadyWithoutSpectatorClients()
+    {
+        using TemporaryDirectory directory = new();
+        string runDirectory = directory.CreateDirectory("run");
+        using RunLifecycleJournal journal = new(
+            "bridge-20260724t070000000z-a1b2c3d4e5f6",
+            new RunPathPolicy(runDirectory));
+        DateTimeOffset timestamp = new(2026, 7, 24, 7, 0, 0, TimeSpan.Zero);
+
+        await journal.InitializeAsync(timestamp, CancellationToken.None);
+        await journal.TransitionAsync(ArenaRunState.Preparing, timestamp.AddSeconds(1), null, null, null, null, CancellationToken.None);
+        await journal.TransitionAsync(ArenaRunState.StartingServer, timestamp.AddSeconds(2), "server", null, null, null, CancellationToken.None);
+        await journal.TransitionAsync(ArenaRunState.WaitingForGameScript, timestamp.AddSeconds(3), "server", null, null, null, CancellationToken.None);
+        await journal.TransitionAsync(ArenaRunState.Ready, timestamp.AddSeconds(4), "server", null, null, null, CancellationToken.None);
+
+        Assert.Equal(ArenaRunState.Ready, RunLifecycleJournal.ReadLatest(runDirectory)?.State);
+    }
 }
