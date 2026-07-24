@@ -10,6 +10,17 @@ Error codes are stable, machine-readable identifiers. User-facing messages state
 | `ARENA-PROVIDER-REPLAY-OBSERVATION-MISMATCH` | A replay fixture does not match the normalized observation hash. | Providers |
 | `ARENA-PROTOCOL-VERSION-MISMATCH` | A component cannot safely use the negotiated protocol version. | Admin protocol |
 | `ARENA-PROTOCOL-INVALID-MESSAGE` | A protocol message failed validation or limits. | Admin protocol |
+| `ARENA-PROTOCOL-MESSAGE-TOO-LARGE` | A direct or logical protocol payload exceeded its bounded size. | Admin protocol |
+| `ARENA-PROTOCOL-CHUNK-INVALID` | A chunked protocol transfer had invalid metadata, ordering, or integrity data. | Admin protocol |
+| `ARENA-PROTOCOL-CHUNK-TIMEOUT` | A chunked protocol transfer did not complete within its bounded reassembly window. | Admin protocol |
+| `ARENA-PROTOCOL-STALE-CORRELATION` | A message belonged to another run, request, or idempotency key. | Admin protocol |
+| `ARENA-ADMINPORT-UNAVAILABLE` | The authenticated loopback AdminPort could not be reached or rejected a packet. | Admin protocol |
+| `ARENA-ADMINPORT-AUTHENTICATION-FAILED` | OpenTTD rejected the dedicated AdminPort credential. | Admin protocol |
+| `ARENA-ADMINPORT-PROTOCOL-INCOMPATIBLE` | OpenTTD did not expose the required Admin protocol or GameScript update capability. | Admin protocol |
+| `ARENA-ADMINPORT-QUEUE-FULL` | The bounded outbound AdminPort queue cannot accept another request. | Admin protocol |
+| `ARENA-ADMINPORT-REQUEST-TIMED-OUT` | ArenaGS did not produce a correlated result before the request deadline. | Admin protocol |
+| `ARENA-ADMINPORT-RECONNECT-FAILED` | A dropped AdminPort connection could not be restored within the configured retry limit. | Admin protocol |
+| `ARENA-ADMINPORT-SECRET-INVALID` | The dedicated AdminPort credential cannot safely be written to OpenTTD `secrets.cfg`. | Admin protocol |
 | `ARENA-ACTION-CONSTRAINT-VIOLATION` | A requested action violates scenario or game-side constraints. | GameScript |
 | `ARENA-ACTION-PATH-NOT-FOUND` | Deterministic path construction found no allowed path. | GameScript |
 | `ARENA-OPENTTD-PROCESS-EXITED` | A supervised OpenTTD process exited unexpectedly. | Orchestrator |

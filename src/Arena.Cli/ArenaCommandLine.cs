@@ -23,7 +23,7 @@ public static class ArenaCommandLine
         {
             if (args.Length == 1 && string.Equals(args[0], "--version", StringComparison.Ordinal))
             {
-                Console.WriteLine("ttd-arena 0.2.0 (Phase 02 reproducible game run)");
+                Console.WriteLine("ttd-arena 0.3.0 (Phase 03 AdminPort bridge)");
                 return 0;
             }
 
@@ -44,6 +44,7 @@ public static class ArenaCommandLine
                 "bootstrap" => await RunBootstrapAsync(repositoryRoot, args[1..], cancellationToken),
                 "doctor" => await RunDoctorAsync(repositoryRoot, args[1..], cancellationToken),
                 "smoke" => await RunSmokeAsync(repositoryRoot, args[1..], cancellationToken),
+                "bridge-smoke" => await RunBridgeSmokeAsync(repositoryRoot, args[1..], cancellationToken),
                 "credentials" => await RunCredentialsAsync(repositoryRoot, args[1..], cancellationToken),
                 _ => UnknownCommand(args[0]),
             };
@@ -94,7 +95,7 @@ public static class ArenaCommandLine
             Console.WriteLine($"  warning: {SecretRedactor.Redact(warning)}");
         }
 
-        Console.WriteLine("Next: set the dedicated OBS password with `credentials set OpenTTDModelArena/OBS`, configure OBS, then run `doctor`.");
+        Console.WriteLine("Next: set dedicated OBS and AdminPort credentials, configure OBS, then run `doctor`.");
         return 0;
     }
 
@@ -235,6 +236,83 @@ public static class ArenaCommandLine
             ArenaRunState.Cancelled => 130,
             _ => 2,
         };
+    }
+
+    private static async Task<int> RunBridgeSmokeAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (!TryParseOptions(
+                arguments,
+                ["--config", "--startup-timeout-seconds", "--request-timeout-seconds", "--shutdown-timeout-seconds", "--json"],
+                out CliOptions options))
+        {
+            return WriteUsageError(options.ErrorMessage);
+        }
+
+        if (options.Positionals.Count > 0)
+        {
+            return WriteUsageError("bridge-smoke does not accept positional arguments.");
+        }
+
+        ArenaConfigurationLoadResult configurationResult = await ArenaConfigurationLoader.LoadArenaAsync(
+            repositoryRoot,
+            ResolveRepositoryOptionPath(repositoryRoot, options, "--config", ".config/arena.local.yaml"),
+            cancellationToken);
+        if (!configurationResult.Succeeded || configurationResult.Configuration is null)
+        {
+            foreach (ConfigurationValidationError error in configurationResult.Errors)
+            {
+                Console.Error.WriteLine($"{error.Code}: {SecretRedactor.Redact(error.Message)}");
+            }
+
+            return 2;
+        }
+
+        if (!TryGetBoundedSeconds(options, "--startup-timeout-seconds", 60, 5, 300, out int startupTimeoutSeconds) ||
+            !TryGetBoundedSeconds(options, "--request-timeout-seconds", 20, 8, 60, out int requestTimeoutSeconds) ||
+            !TryGetBoundedSeconds(options, "--shutdown-timeout-seconds", 15, 2, 120, out int shutdownTimeoutSeconds))
+        {
+            return WriteUsageError("Bridge-smoke timeouts must be whole seconds within the documented Phase 03 bounds.");
+        }
+
+        Phase03BridgeService service = new(
+            new RunDirectoryAllocator(),
+            new SystemArenaProcessFactory(),
+            new CliOpenTtdConsoleBridge(),
+            new TcpLoopbackReadinessProbe(),
+            new WindowsCredentialStore());
+        Phase03BridgeSmokeResult result = await service.RunAsync(
+            configurationResult.Configuration,
+            new Phase03BridgeSmokeOptions(
+                TimeSpan.FromSeconds(startupTimeoutSeconds),
+                TimeSpan.FromSeconds(requestTimeoutSeconds),
+                TimeSpan.FromSeconds(shutdownTimeoutSeconds)),
+            cancellationToken);
+
+        if (options.Flags.Contains("--json"))
+        {
+            Console.WriteLine(JsonSerializer.Serialize(result, DoctorJsonOptions));
+        }
+        else
+        {
+            string runDirectory = Path.Combine(configurationResult.Configuration.Runtime.Runs, result.RunId);
+            Console.WriteLine($"Phase 03 bridge smoke {(result.Succeeded ? "completed" : "failed")}.");
+            Console.WriteLine($"  run: {runDirectory}");
+            Console.WriteLine($"  result: {Path.Combine(runDirectory, "bridge-result.json")}");
+            if (result.ErrorCode is not null)
+            {
+                Console.WriteLine($"  error: {result.ErrorCode}");
+            }
+        }
+
+        if (result.Succeeded)
+        {
+            return 0;
+        }
+
+        return string.Equals(result.ErrorCode, ArenaErrorCodes.RunCancelled, StringComparison.Ordinal) ? 130 : 2;
     }
 
     private static async Task<int> SetCredentialAsync(
@@ -629,10 +707,11 @@ public static class ArenaCommandLine
 
     private static void WriteHelp()
     {
-        Console.WriteLine("OpenTTD Model Arena Phase 02 commands:");
+        Console.WriteLine("OpenTTD Model Arena Phase 03 commands:");
         Console.WriteLine("  ttd-arena bootstrap [--config <path>] [--providers-config <path>] [--openttd-source <directory>]");
         Console.WriteLine("  ttd-arena doctor [--config <path>] [--providers-config <path>] [--json] [--verbose]");
         Console.WriteLine("  ttd-arena smoke [--config <path>] [--duration-seconds <0-300>] [--startup-timeout-seconds <5-300>] [--shutdown-timeout-seconds <2-120>] [--json]");
+        Console.WriteLine("  ttd-arena bridge-smoke [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
         Console.WriteLine("  ttd-arena credentials set OpenTTDModelArena/<name>");
         Console.WriteLine("  ttd-arena credentials test <provider-id|OpenTTDModelArena/name> [--providers-config <path>]");
         Console.WriteLine("  ttd-arena credentials list");

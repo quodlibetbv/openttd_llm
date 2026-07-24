@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using OpenTtd.ModelArena.Contracts;
 using OpenTtd.ModelArena.Obs;
 using OpenTtd.ModelArena.Storage;
@@ -16,7 +17,7 @@ public sealed record BootstrapResult(
     IReadOnlyList<string> Warnings,
     ArenaError? Error);
 
-public static class BootstrapService
+public static partial class BootstrapService
 {
     public static async Task<BootstrapResult> RunAsync(
         BootstrapRequest request,
@@ -55,6 +56,7 @@ public static class BootstrapService
                 providersConfigurationPath,
                 "provider local configuration",
                 createdOrUpdated);
+            MigratePhase03AdminPortCredentialReference(arenaConfigurationPath, createdOrUpdated);
 
             ArenaConfigurationLoadResult configurationResult = await ArenaConfigurationLoader.LoadArenaAsync(
                 repositoryRoot,
@@ -215,4 +217,32 @@ public static class BootstrapService
         File.Copy(sourcePath, destinationPath, false);
         createdOrUpdated.Add(label);
     }
+
+    private static void MigratePhase03AdminPortCredentialReference(
+        string arenaConfigurationPath,
+        List<string> createdOrUpdated)
+    {
+        string contents = File.ReadAllText(arenaConfigurationPath);
+        if (contents.Contains("admin_credential_ref:", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        MatchCollection ports = AdminPortLine().Matches(contents);
+        if (ports.Count != 1)
+        {
+            return;
+        }
+
+        Match port = ports[0];
+        string newline = contents.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        string indent = port.Groups["indent"].Value;
+        string inserted = port.Value + newline + indent + "admin_credential_ref: credman:OpenTTDModelArena/AdminPort";
+        string migrated = contents[..port.Index] + inserted + contents[(port.Index + port.Length)..];
+        File.WriteAllText(arenaConfigurationPath, migrated);
+        createdOrUpdated.Add("Phase 03 AdminPort credential reference");
+    }
+
+    [GeneratedRegex("^(?<indent>[ \\t]+)admin_port:[^\\r\\n]*$", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
+    private static partial Regex AdminPortLine();
 }

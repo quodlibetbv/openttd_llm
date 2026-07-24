@@ -1,8 +1,8 @@
 {
   "name": "openttd-model-arena",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "Phase 02 reproducible OpenTTD lifecycle, setup, contract validation, and quality gates for OpenTTD Model Arena.",
+  "description": "Phase 03 authenticated OpenTTD AdminPort bridge, lifecycle, setup, contract validation, and quality gates for OpenTTD Model Arena.",
   "scripts": {
     "check:architecture": "node scripts/check-architecture.mjs",
     "check:format": "node scripts/check-format.mjs",

@@ -80,7 +80,9 @@ try {
     Write-Host "Next steps:"
     Write-Host "  1. Configure OBS WebSocket on 127.0.0.1 and use .runtime/obs/Arena-Scene-Collection.template.json as the dedicated scene checklist."
     Write-Host "  2. Run: pwsh ./scripts/ttd-arena.ps1 credentials set OpenTTDModelArena/OBS"
-    Write-Host "  3. Run: pwsh ./scripts/ttd-arena.ps1 doctor --verbose"
+    Write-Host "  3. Run: pwsh ./scripts/ttd-arena.ps1 credentials set OpenTTDModelArena/AdminPort"
+    Write-Host "  4. Run: pwsh ./scripts/ttd-arena.ps1 doctor --verbose"
+    Write-Host "  5. Run: pwsh ./scripts/bridge-smoke.ps1"
 }
 finally {
     Pop-Location

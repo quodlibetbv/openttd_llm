@@ -26,7 +26,8 @@ public sealed record OpenTtdLocalConfiguration(
     string Executable,
     string ServerConfiguration,
     string SpectatorConfiguration,
-    int AdminPort);
+    int AdminPort,
+    CredentialReference AdminCredentialReference);
 
 public sealed record ObsLocalConfiguration(
     string Host,
@@ -144,7 +145,7 @@ public static class ArenaConfigurationLoader
         Dictionary<string, YamlNode> doctorValues = ReadRequiredMapping(rootValues, "doctor", "doctor", errors);
 
         ValidateKnownFields(runtimeValues, ["root", "runs", "recordings"], "runtime", errors);
-        ValidateKnownFields(openttdValues, ["executable", "server_config", "spectator_config", "admin_port"], "openttd", errors);
+        ValidateKnownFields(openttdValues, ["executable", "server_config", "spectator_config", "admin_port", "admin_credential_ref"], "openttd", errors);
         ValidateKnownFields(obsValues, ["host", "port", "credential_ref", "scene_collection", "executable"], "obs", errors);
         ValidateKnownFields(networkValues, ["bind_address"], "network", errors);
         ValidateKnownFields(loggingValues, ["level", "redact_secrets"], "logging", errors);
@@ -182,6 +183,7 @@ public static class ArenaConfigurationLoader
             errors);
 
         int? adminPort = RequiredInteger(openttdValues, "admin_port", "openttd.admin_port", 1024, 65535, errors);
+        string? adminCredentialText = RequiredString(openttdValues, "admin_credential_ref", "openttd.admin_credential_ref", errors);
         string? obsHost = RequiredString(obsValues, "host", "obs.host", errors);
         int? obsPort = RequiredInteger(obsValues, "port", "obs.port", 1, 65535, errors);
         string? obsCredentialText = RequiredString(obsValues, "credential_ref", "obs.credential_ref", errors);
@@ -245,6 +247,7 @@ public static class ArenaConfigurationLoader
         }
 
         CredentialReference? obsCredential = ParseCredentialReference(obsCredentialText, "obs.credential_ref", errors);
+        CredentialReference? adminCredential = ParseCredentialReference(adminCredentialText, "openttd.admin_credential_ref", errors);
         if (adminPort == ArenaRuntimeLayout.GameServerPort)
         {
             AddError(
@@ -263,6 +266,17 @@ public static class ArenaConfigurationLoader
                 $"obs.scene_collection must be no longer than {MaximumSceneCollectionLength} characters.");
         }
 
+        if (adminCredential is not null &&
+            obsCredential is not null &&
+            string.Equals(adminCredential.Target, obsCredential.Target, StringComparison.OrdinalIgnoreCase))
+        {
+            AddError(
+                errors,
+                "openttd.admin_credential_ref",
+                ArenaErrorCodes.ConfigurationInvalid,
+                "openttd.admin_credential_ref must be a dedicated credential and must not reuse the OBS credential reference.");
+        }
+
         ValidateExecutableName(obsExecutable, "obs.executable", errors);
         if (errors.Count > 0 ||
             runtimeRoot is null ||
@@ -272,6 +286,7 @@ public static class ArenaConfigurationLoader
             serverConfiguration is null ||
             spectatorConfiguration is null ||
             adminPort is null ||
+            adminCredential is null ||
             obsHost is null ||
             obsPort is null ||
             obsCredential is null ||
@@ -289,7 +304,7 @@ public static class ArenaConfigurationLoader
                 normalizedRepositoryRoot,
                 validatedConfigurationPath,
                 new RuntimeLocalConfiguration(runtimeRoot, runsRoot, recordingsRoot),
-                new OpenTtdLocalConfiguration(openttdExecutable, serverConfiguration, spectatorConfiguration, adminPort.Value),
+                new OpenTtdLocalConfiguration(openttdExecutable, serverConfiguration, spectatorConfiguration, adminPort.Value, adminCredential),
                 new ObsLocalConfiguration(obsHost, obsPort.Value, obsCredential, sceneCollection, obsExecutable),
                 new NetworkLocalConfiguration(bindAddress),
                 new LoggingLocalConfiguration(logLevel, redactSecrets.Value),

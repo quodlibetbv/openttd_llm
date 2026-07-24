@@ -6,7 +6,7 @@ Each phase produces a demonstrable increment with explicit exit criteria. A phas
 
 ## Current status
 
-Phase 00 — Foundation, Phase 01 — Setup and Doctor, and Phase 02 — Reproducible Game Run are complete. Phase 03-and-later documents define planned deliverables and must not be read as implemented behavior.
+Phase 00 — Foundation, Phase 01 — Setup and Doctor, Phase 02 — Reproducible Game Run, and Phase 03 — AdminPort Bridge are complete. Phase 04-and-later documents define planned deliverables and must not be read as implemented behavior.
 
 ## Milestone summary
 

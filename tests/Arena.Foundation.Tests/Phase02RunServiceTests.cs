@@ -245,6 +245,8 @@ public sealed class Phase02RunServiceTests
         directory.WriteFile(".runtime/openttd/openttd.exe", "test executable");
         Assert.True(CredentialReference.TryParse("credman:OpenTTDModelArena/OBS", out CredentialReference? credential));
         Assert.NotNull(credential);
+        Assert.True(CredentialReference.TryParse("credman:OpenTTDModelArena/AdminPort", out CredentialReference? adminCredential));
+        Assert.NotNull(adminCredential);
 
         return new ArenaLocalConfiguration(
             directory.Path,
@@ -254,7 +256,8 @@ public sealed class Phase02RunServiceTests
                 Path.Combine(openTtdRoot, "openttd.exe"),
                 Path.Combine(openTtdRoot, ArenaRuntimeLayout.ServerConfigurationFileName),
                 Path.Combine(openTtdRoot, ArenaRuntimeLayout.SpectatorConfigurationFileName),
-                3977),
+                3977,
+                adminCredential!),
             new ObsLocalConfiguration("127.0.0.1", 4455, credential!, "OpenTTD Model Arena", "obs64"),
             new NetworkLocalConfiguration("127.0.0.1"),
             new LoggingLocalConfiguration("Information", true),

@@ -96,6 +96,26 @@ public sealed class ArenaConfigurationLoaderTests
     }
 
     [Fact]
+    public async Task RequiresASeparateAdminPortCredentialReference()
+    {
+        using TemporaryDirectory directory = new();
+        string configurationPath = directory.WriteFile(
+            ".config/arena.local.yaml",
+            ValidArenaConfiguration().Replace(
+                "credman:OpenTTDModelArena/AdminPort",
+                "credman:OpenTTDModelArena/OBS",
+                StringComparison.Ordinal));
+
+        ArenaConfigurationLoadResult result = await ArenaConfigurationLoader.LoadArenaAsync(
+            directory.Path,
+            configurationPath,
+            CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Errors, error => error.Field == "openttd.admin_credential_ref");
+    }
+
+    [Fact]
     public async Task RejectsConfigurationThatDisablesSecretRedaction()
     {
         using TemporaryDirectory directory = new();
@@ -291,6 +311,7 @@ public sealed class ArenaConfigurationLoaderTests
           server_config: .runtime/openttd/server.cfg
           spectator_config: .runtime/openttd/spectator.cfg
           admin_port: 3977
+          admin_credential_ref: credman:OpenTTDModelArena/AdminPort
         obs:
           host: 127.0.0.1
           port: 4455

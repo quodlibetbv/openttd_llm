@@ -165,7 +165,9 @@ public sealed class RunLifecycleJournal : IDisposable
             ArenaRunState.Created => next == ArenaRunState.Preparing,
             ArenaRunState.Preparing => next is ArenaRunState.StartingServer or ArenaRunState.Finalizing,
             ArenaRunState.StartingServer => next is ArenaRunState.WaitingForGameScript or ArenaRunState.Finalizing,
-            ArenaRunState.WaitingForGameScript => next is ArenaRunState.StartingClients or ArenaRunState.Finalizing,
+            // A protocol-only run, such as the Phase 03 bridge smoke, has no
+            // spectator-client stage between GameScript readiness and Ready.
+            ArenaRunState.WaitingForGameScript => next is ArenaRunState.StartingClients or ArenaRunState.Ready or ArenaRunState.Finalizing,
             ArenaRunState.StartingClients => next is ArenaRunState.Ready or ArenaRunState.Finalizing,
             ArenaRunState.Ready => next is ArenaRunState.Running or ArenaRunState.Finalizing,
             ArenaRunState.Running => next == ArenaRunState.Finalizing,

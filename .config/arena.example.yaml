@@ -11,6 +11,7 @@ openttd:
   server_config: .runtime/openttd/server.cfg
   spectator_config: .runtime/openttd/spectator.cfg
   admin_port: 3977
+  admin_credential_ref: credman:OpenTTDModelArena/AdminPort
 
 obs:
   host: 127.0.0.1

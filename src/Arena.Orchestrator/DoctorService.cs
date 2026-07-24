@@ -1,4 +1,5 @@
 using OpenTtd.ModelArena.Contracts;
+using OpenTtd.ModelArena.AdminProtocol;
 using OpenTtd.ModelArena.Obs;
 using OpenTtd.ModelArena.Storage;
 
@@ -60,7 +61,7 @@ public sealed class DoctorService
         List<DoctorCheckResult> checks = [
             Pass(
                 "configuration.arena-local",
-                "Arena local configuration satisfied the Phase 01 schema and path policy."),
+                "Arena local configuration satisfied the versioned schema and path policy."),
         ];
         AddProviderConfigurationCheck(providersResult, checks);
 
@@ -88,6 +89,8 @@ public sealed class DoctorService
             cancellationToken));
         checks.Add(await EvaluateDiskSpaceAsync(configuration, cancellationToken));
 
+        checks.Add(await EvaluateAdminPortCredentialAsync(configuration, cancellationToken));
+
         checks.Add(await EvaluateExecutableAsync("obs", configuration.Obs.Executable, 28, cancellationToken));
         checks.Add(EvaluateObsTemplate(configuration));
         await AddObsCredentialAndWebSocketChecksAsync(configuration, checks, cancellationToken);
@@ -99,8 +102,8 @@ public sealed class DoctorService
             "Do not treat an absent scenario schema as a benchmark-ready configuration."));
         checks.Add(Warning(
             "adminport-handshake",
-            "AdminPort authentication and protocol compatibility are deferred until Phase 03.",
-            "Use the Phase 02 smoke command for isolated lifecycle verification; Phase 03 adds the authenticated protocol check."));
+            "Run bridge-smoke to perform the authenticated AdminPort protocol and GameScript compatibility check.",
+            "Set the dedicated AdminPort credential, then run bridge-smoke before treating this host as Phase 03-ready."));
 
         return new DoctorReport(1, _clock.UtcNow, checks);
     }
@@ -113,7 +116,7 @@ public sealed class DoctorService
         {
             checks.Add(Pass(
                 "configuration.providers-local",
-                "Provider local configuration satisfied the Phase 01 schema and contains credential references only."));
+                "Provider local configuration satisfied the versioned schema and contains credential references only."));
             return;
         }
 
@@ -134,7 +137,7 @@ public sealed class DoctorService
             return Block(
                 "host",
                 ArenaErrorCodes.DoctorPrerequisiteFailed,
-                "OpenTTD Model Arena Phase 01 requires a 64-bit Windows 11 host.",
+                "OpenTTD Model Arena requires a 64-bit Windows 11 host.",
                 "Use a supported Windows 11 64-bit account; Windows 10 and non-Windows hosts are not supported production targets.");
         }
 
@@ -388,6 +391,38 @@ public sealed class DoctorService
         finally
         {
             secret.Dispose();
+        }
+    }
+
+    private async Task<DoctorCheckResult> EvaluateAdminPortCredentialAsync(
+        ArenaLocalConfiguration configuration,
+        CancellationToken cancellationToken)
+    {
+        CredentialReadResult credential = await _credentialStore.ReadAsync(
+            configuration.OpenTtd.AdminCredentialReference,
+            cancellationToken);
+        try
+        {
+            if (!credential.Succeeded || credential.Secret is null)
+            {
+                return Block(
+                    "credential.adminport",
+                    credential.ErrorCode ?? ArenaErrorCodes.CredentialMissing,
+                    "The dedicated OpenTTD AdminPort credential reference cannot be resolved.",
+                    "Set a dedicated 1 to 31 character AdminPort password with credentials set, then rerun doctor.");
+            }
+
+            return AdminPortPacketCodec.IsSupportedPassword(credential.Secret.Bytes.Span)
+                ? Pass("credential.adminport", "The dedicated OpenTTD AdminPort credential reference resolves with a supported length and character policy.")
+                : Block(
+                    "credential.adminport",
+                    ArenaErrorCodes.AdminPortSecretInvalid,
+                    "The dedicated OpenTTD AdminPort credential is not valid for OpenTTD's password protocol.",
+                    "Replace it with a unique 1 to 31 character printable ASCII credential, excluding spaces, equals, semicolons, and number signs.");
+        }
+        finally
+        {
+            credential.Secret?.Dispose();
         }
     }
 

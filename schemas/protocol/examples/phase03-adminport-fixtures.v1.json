@@ -1,0 +1,75 @@
+{
+  "fixture_version": "1.0",
+  "cases": [
+    {
+      "id": "valid-hello",
+      "expected_error_code": null,
+      "envelope": {
+        "protocol_version": "1.0",
+        "message_type": "hello",
+        "run_id": "{{run_id}}",
+        "message_id": "message-hello-01",
+        "correlation_id": "correlation-hello-01",
+        "idempotency_key": "key-hello-01",
+        "payload": {}
+      }
+    },
+    {
+      "id": "valid-snapshot",
+      "expected_error_code": null,
+      "envelope": {
+        "protocol_version": "1.0",
+        "message_type": "snapshot_request",
+        "run_id": "{{run_id}}",
+        "message_id": "message-snapshot-01",
+        "correlation_id": "correlation-snapshot-01",
+        "idempotency_key": "key-snapshot-01",
+        "payload": {
+          "include": [
+            "game_date",
+            "paused"
+          ]
+        }
+      }
+    },
+    {
+      "id": "invalid-version",
+      "expected_error_code": "ARENA-PROTOCOL-VERSION-MISMATCH",
+      "envelope": {
+        "protocol_version": "9.9",
+        "message_type": "heartbeat",
+        "run_id": "{{run_id}}",
+        "message_id": "message-version-01",
+        "correlation_id": "correlation-version-01",
+        "idempotency_key": "key-version-01",
+        "payload": {}
+      }
+    },
+    {
+      "id": "invalid-unknown-field",
+      "expected_error_code": "ARENA-PROTOCOL-INVALID-MESSAGE",
+      "envelope": {
+        "protocol_version": "1.0",
+        "message_type": "heartbeat",
+        "run_id": "{{run_id}}",
+        "message_id": "message-unknown-01",
+        "correlation_id": "correlation-unknown-01",
+        "idempotency_key": "key-unknown-01",
+        "payload": {},
+        "unexpected": true
+      }
+    },
+    {
+      "id": "invalid-missing-idempotency",
+      "expected_error_code": "ARENA-PROTOCOL-INVALID-MESSAGE",
+      "envelope": {
+        "protocol_version": "1.0",
+        "message_type": "pause_request",
+        "run_id": "{{run_id}}",
+        "message_id": "message-key-01",
+        "correlation_id": "correlation-key-01",
+        "payload": {}
+      }
+    }
+  ]
+}
