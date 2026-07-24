@@ -18,9 +18,9 @@ public sealed class BootstrapServiceTests
             StringComparison.Ordinal));
         directory.WriteFile(".config/providers.local.yaml", "config_version: 1\nproviders: {}\n");
         directory.WriteFile("openttd/game/ArenaGS/main.nut", "class ArenaGS {}");
-        directory.WriteFile("openttd/game/ArenaGS/info.nut", "ArenaGS RegisterGS");
+        directory.WriteFile("openttd/game/ArenaGS/info.nut", "ArenaGS function GetShortName() { return \"ARGS\"; } function GetAPIVersion() { return \"1.2\"; } RegisterGS");
         directory.WriteFile("openttd/ai/ModelProxyAI/main.nut", "class ModelProxyAI {}");
-        directory.WriteFile("openttd/ai/ModelProxyAI/info.nut", "ModelProxyAI RegisterAI");
+        directory.WriteFile("openttd/ai/ModelProxyAI/info.nut", "ModelProxyAI function GetShortName() { return \"MPAI\"; } function GetAPIVersion() { return \"1.0\"; } RegisterAI");
         string localConfigurationPath = Path.Combine(directory.Path, ".config", "arena.local.yaml");
         string expectedLocalConfiguration = File.ReadAllText(localConfigurationPath);
 
@@ -54,9 +54,9 @@ public sealed class BootstrapServiceTests
         directory.WriteFile(".config/arena.example.yaml", ArenaConfigurationLoaderTests.ValidArenaConfiguration());
         directory.WriteFile(".config/providers.example.yaml", "config_version: 1\nproviders: {}\n");
         directory.WriteFile("openttd/game/ArenaGS/main.nut", "class ArenaGS {}");
-        directory.WriteFile("openttd/game/ArenaGS/info.nut", "ArenaGS RegisterGS");
+        directory.WriteFile("openttd/game/ArenaGS/info.nut", "ArenaGS function GetShortName() { return \"ARGS\"; } function GetAPIVersion() { return \"1.2\"; } RegisterGS");
         directory.WriteFile("openttd/ai/ModelProxyAI/main.nut", "class ModelProxyAI {}");
-        directory.WriteFile("openttd/ai/ModelProxyAI/info.nut", "ModelProxyAI RegisterAI");
+        directory.WriteFile("openttd/ai/ModelProxyAI/info.nut", "ModelProxyAI function GetShortName() { return \"MPAI\"; } function GetAPIVersion() { return \"1.0\"; } RegisterAI");
         string outsideDirectory = directory.CreateDirectory("outside-config");
         string linkedDirectory = Path.Combine(directory.Path, ".config", "linked");
         try
@@ -64,6 +64,10 @@ public sealed class BootstrapServiceTests
             Directory.CreateSymbolicLink(linkedDirectory, outsideDirectory);
         }
         catch (UnauthorizedAccessException)
+        {
+            return;
+        }
+        catch (IOException)
         {
             return;
         }

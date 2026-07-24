@@ -19,6 +19,9 @@ public sealed class DoctorServiceTests
 
         Assert.False(report.HasBlockingFailures);
         Assert.Contains(report.Checks, check => check.Id == "scenario-schema" && check.Status == DoctorCheckStatus.Warning);
+        DoctorCheckResult adminPortWarning = Assert.Single(report.Checks, check => check.Id == "adminport-handshake");
+        Assert.Equal(DoctorCheckStatus.Warning, adminPortWarning.Status);
+        Assert.Contains("Phase 02 smoke", adminPortWarning.Remediation, StringComparison.Ordinal);
         Assert.Contains(report.Checks, check => check.Id == "obs.websocket" && check.Status == DoctorCheckStatus.Pass);
     }
 
@@ -132,9 +135,9 @@ public sealed class DoctorServiceTests
     {
         string runtimeRoot = directory.CreateDirectory(".runtime");
         directory.WriteFile("openttd/game/ArenaGS/main.nut", "class ArenaGS {}");
-        directory.WriteFile("openttd/game/ArenaGS/info.nut", "ArenaGS RegisterGS");
+        directory.WriteFile("openttd/game/ArenaGS/info.nut", "ArenaGS function GetShortName() { return \"ARGS\"; } function GetAPIVersion() { return \"1.2\"; } RegisterGS");
         directory.WriteFile("openttd/ai/ModelProxyAI/main.nut", "class ModelProxyAI {}");
-        directory.WriteFile("openttd/ai/ModelProxyAI/info.nut", "ModelProxyAI RegisterAI");
+        directory.WriteFile("openttd/ai/ModelProxyAI/info.nut", "ModelProxyAI function GetShortName() { return \"MPAI\"; } function GetAPIVersion() { return \"1.0\"; } RegisterAI");
         RuntimeLayoutResult runtime = await RuntimeLayoutBuilder.PrepareAsync(
             new RuntimeLayoutRequest(
                 directory.Path,

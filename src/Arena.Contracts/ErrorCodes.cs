@@ -30,6 +30,16 @@ public static class ArenaErrorCodes
     public const string ObsWebSocketUnavailable = "ARENA-OBS-WEBSOCKET-UNAVAILABLE";
     public const string ObsAuthenticationFailed = "ARENA-OBS-AUTHENTICATION-FAILED";
     public const string ObsSceneRequirementsMissing = "ARENA-OBS-SCENE-REQUIREMENTS-MISSING";
+    public const string RunAllocationFailed = "ARENA-RUN-ALLOCATION-FAILED";
+    public const string RunPreparationFailed = "ARENA-RUN-PREPARATION-FAILED";
+    public const string RunStartupTimedOut = "ARENA-RUN-STARTUP-TIMED-OUT";
+    public const string RunGameScriptNotReady = "ARENA-RUN-GAMESCRIPT-NOT-READY";
+    public const string RunServerExited = "ARENA-RUN-SERVER-EXITED";
+    public const string RunSpectatorExited = "ARENA-RUN-SPECTATOR-EXITED";
+    public const string RunCancelled = "ARENA-RUN-CANCELLED";
+    public const string RunFinalizationFailed = "ARENA-RUN-FINALIZATION-FAILED";
+    public const string RunConsoleControlFailed = "ARENA-RUN-CONSOLE-CONTROL-FAILED";
+    public const string RunArtifactMissing = "ARENA-RUN-ARTIFACT-MISSING";
 }
 
 public sealed record ArenaError(

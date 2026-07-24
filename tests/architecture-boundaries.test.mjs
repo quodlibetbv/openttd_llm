@@ -7,6 +7,6 @@ test("provider adapters cannot reference OpenTTD execution internals", () => {
   assert.deepEqual(checkArchitecture(), []);
 });
 
-test("the OpenTTD foundation packages have valid inert entry points", () => {
+test("the OpenTTD Phase 02 packages have persisted inert readiness entry points", () => {
   assert.deepEqual(validateOpenTtdPackages(), []);
 });

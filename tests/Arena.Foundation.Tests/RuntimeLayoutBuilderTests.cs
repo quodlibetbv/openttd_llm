@@ -53,7 +53,12 @@ public sealed class RuntimeLayoutBuilderTests
         Assert.DoesNotContain("no_http_content_downloads", configuration, StringComparison.Ordinal);
         Assert.Contains("127.0.0.1 =", privateConfiguration, StringComparison.Ordinal);
         Assert.DoesNotContain("profile-only", privateConfiguration, StringComparison.Ordinal);
-        Assert.Contains("set network.server_admin_port 3977", serverConfiguration, StringComparison.Ordinal);
+        Assert.Contains("server_admin_port = 3977", serverConfiguration, StringComparison.Ordinal);
+        Assert.Contains("[game_scripts]", serverConfiguration, StringComparison.Ordinal);
+        Assert.Contains("ArenaGS =", serverConfiguration, StringComparison.Ordinal);
+        Assert.Contains("ModelProxyAI =", serverConfiguration, StringComparison.Ordinal);
+        Assert.Contains("max_no_competitors = 1", serverConfiguration, StringComparison.Ordinal);
+        Assert.Contains("competitors_interval = 0", serverConfiguration, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -110,6 +115,33 @@ public sealed class RuntimeLayoutBuilderTests
     }
 
     [Fact]
+    public async Task DetectsUnsupportedPackageMetadataBeforeARunStarts()
+    {
+        using TemporaryDirectory directory = new();
+        CreatePackageSources(directory);
+        RuntimeLayoutResult result = await RuntimeLayoutBuilder.PrepareAsync(
+            new RuntimeLayoutRequest(
+                directory.Path,
+                Path.Combine(directory.Path, ".runtime"),
+                null,
+                "127.0.0.1",
+                3977),
+            CancellationToken.None);
+        Assert.True(result.Succeeded);
+
+        File.WriteAllText(
+            Path.Combine(directory.Path, ".runtime", "openttd", "game", "ArenaGS", "info.nut"),
+            "class ArenaGSInfo extends GSInfo { function GetShortName() { return \"ARGS\"; } function GetAPIVersion() { return \"1.0\"; } } RegisterGS(ArenaGSInfo()); // ArenaGS");
+        RuntimeLayoutInspection inspection = RuntimeLayoutInspector.Inspect(
+            Path.Combine(directory.Path, ".runtime"),
+            "127.0.0.1",
+            3977);
+
+        Assert.False(inspection.IsValid);
+        Assert.Contains("ArenaGS metadata", inspection.MissingOrInvalidItems);
+    }
+
+    [Fact]
     public async Task RejectsAPackageFileSymbolicLinkEvenWhenItsContentMatchesTheManifest()
     {
         using TemporaryDirectory directory = new();
@@ -138,6 +170,10 @@ public sealed class RuntimeLayoutBuilderTests
             File.CreateSymbolicLink(runtimeMainPath, replacementPath);
         }
         catch (UnauthorizedAccessException)
+        {
+            return;
+        }
+        catch (IOException)
         {
             return;
         }
@@ -172,7 +208,7 @@ public sealed class RuntimeLayoutBuilderTests
 
         File.AppendAllText(
             Path.Combine(directory.Path, ".runtime", "openttd", ArenaRuntimeLayout.ServerConfigurationFileName),
-            "\nset network.server_port 3979\n");
+            "\n[network]\nserver_port = 3979\n");
         RuntimeLayoutInspection inspection = RuntimeLayoutInspector.Inspect(
             Path.Combine(directory.Path, ".runtime"),
             "127.0.0.1",
@@ -235,6 +271,10 @@ public sealed class RuntimeLayoutBuilderTests
         {
             return;
         }
+        catch (IOException)
+        {
+            return;
+        }
         catch (PlatformNotSupportedException)
         {
             return;
@@ -256,8 +296,8 @@ public sealed class RuntimeLayoutBuilderTests
     private static void CreatePackageSources(TemporaryDirectory directory)
     {
         directory.WriteFile("openttd/game/ArenaGS/main.nut", "class ArenaGS {}");
-        directory.WriteFile("openttd/game/ArenaGS/info.nut", "RegisterGS(ArenaGSInfo()); // ArenaGS");
+        directory.WriteFile("openttd/game/ArenaGS/info.nut", "function GetShortName() { return \"ARGS\"; } function GetAPIVersion() { return \"1.2\"; } RegisterGS(ArenaGSInfo()); // ArenaGS");
         directory.WriteFile("openttd/ai/ModelProxyAI/main.nut", "class ModelProxyAI {}");
-        directory.WriteFile("openttd/ai/ModelProxyAI/info.nut", "RegisterAI(ModelProxyAIInfo()); // ModelProxyAI");
+        directory.WriteFile("openttd/ai/ModelProxyAI/info.nut", "function GetShortName() { return \"MPAI\"; } function GetAPIVersion() { return \"1.0\"; } RegisterAI(ModelProxyAIInfo()); // ModelProxyAI");
     }
 }

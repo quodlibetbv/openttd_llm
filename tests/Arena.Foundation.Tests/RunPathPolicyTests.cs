@@ -26,4 +26,35 @@ public sealed class RunPathPolicyTests
 
         Assert.StartsWith(ArenaErrorCodes.PathOutsideRunRoot, exception.Message);
     }
+
+    [Fact]
+    public void RejectsAnExistingSymbolicLinkInsideTheRunRoot()
+    {
+        using TemporaryDirectory directory = new();
+        string runRoot = directory.CreateDirectory("run");
+        string outside = directory.CreateDirectory("outside");
+        string link = Path.Combine(runRoot, "redirect");
+        try
+        {
+            Directory.CreateSymbolicLink(link, outside);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return;
+        }
+        catch (IOException)
+        {
+            return;
+        }
+        catch (PlatformNotSupportedException)
+        {
+            return;
+        }
+
+        RunPathPolicy policy = new(runRoot);
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => policy.Resolve("redirect/evidence.log"));
+
+        Assert.StartsWith(ArenaErrorCodes.PathOutsideRunRoot, exception.Message);
+    }
 }

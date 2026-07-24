@@ -18,20 +18,38 @@ export function validateOpenTtdPackages() {
     errors.push("ArenaGS must expose GSInfo metadata and register it.");
   }
 
-  if (!/class ArenaGS extends GSController/.test(gameMain) || !/function Start\(\)/.test(gameMain)) {
-    errors.push("ArenaGS must expose a GSController entry point.");
+  if (!/function GetShortName\(\)\s*\{\s*return "ARGS";\s*\}/.test(gameInfo) ||
+      !/function GetAPIVersion\(\)\s*\{\s*return "1\.2";\s*\}/.test(gameInfo)) {
+    errors.push("ArenaGS must declare the supported ARGS short name and GameScript API 1.2.");
+  }
+
+  if (!/class ArenaGS extends GSController/.test(gameMain) ||
+      !/function Start\(\)/.test(gameMain) ||
+      !/function Save\(\)/.test(gameMain) ||
+      !/function Load\(/.test(gameMain) ||
+      !/ARENA_PHASE02_GAMESCRIPT_READY/.test(gameMain)) {
+    errors.push("ArenaGS must expose the Phase 02 persisted readiness entry points.");
   }
 
   if (!/class ModelProxyAIInfo extends AIInfo/.test(aiInfo) || !/RegisterAI\(ModelProxyAIInfo\(\)\);/.test(aiInfo)) {
     errors.push("ModelProxyAI must expose AIInfo metadata and register it.");
   }
 
-  if (!/class ModelProxyAI extends AIController/.test(aiMain) || !/function Start\(\)/.test(aiMain)) {
-    errors.push("ModelProxyAI must expose an AIController entry point.");
+  if (!/function GetShortName\(\)\s*\{\s*return "MPAI";\s*\}/.test(aiInfo) ||
+      !/function GetAPIVersion\(\)\s*\{\s*return "1\.0";\s*\}/.test(aiInfo)) {
+    errors.push("ModelProxyAI must declare the supported MPAI short name and AI API 1.0.");
+  }
+
+  if (!/class ModelProxyAI extends AIController/.test(aiMain) ||
+      !/function Start\(\)/.test(aiMain) ||
+      !/function Save\(\)/.test(aiMain) ||
+      !/function Load\(/.test(aiMain) ||
+      !/ARENA_PHASE02_MODEL_PROXY_READY/.test(aiMain)) {
+    errors.push("ModelProxyAI must expose the Phase 02 persisted readiness entry points.");
   }
 
   if (/AICompany|AIVehicle|AIRoad|AIRail|AIOrder|AIGroup/.test(aiMain)) {
-    errors.push("ModelProxyAI must remain inert at the Phase 01 boundary.");
+    errors.push("ModelProxyAI must remain inert at the Phase 02 lifecycle boundary.");
   }
 
   return errors;
@@ -46,6 +64,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
 
     process.exitCode = 1;
   } else {
-    console.log("OpenTTD package metadata is valid for Phase 01");
+    console.log("OpenTTD package metadata is valid for Phase 02");
   }
 }

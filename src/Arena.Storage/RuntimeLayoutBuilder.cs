@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using OpenTtd.ModelArena.Contracts;
 
 namespace OpenTtd.ModelArena.Storage;
@@ -381,18 +382,48 @@ public static class RuntimeLayoutBuilder
 
     private static string RenderServerConfiguration(int adminPort) =>
         $"""
-        # Generated server defaults. Phase 02 owns launching OpenTTD with these values.
-        # The loopback bind address is stored in private.cfg.
-        set network.server_port {ArenaRuntimeLayout.GameServerPort}
-        set network.server_admin_port {adminPort}
-        set network.server_game_type local
-        set network.pause_on_join true
+        # Immutable Phase 02 server configuration template. Per-run copies are made before launch.
+        # The loopback bind address is stored in the matching private.cfg template.
+        [version]
+        ini_version = 7
+
+        [misc]
+        language = english_US.lng
+
+        [network]
+        server_port = {ArenaRuntimeLayout.GameServerPort}
+        server_admin_port = {adminPort}
+        server_game_type = local
+        pause_on_join = true
+
+        [game_scripts]
+        ArenaGS =
+
+        [ai_players]
+        ModelProxyAI =
+
+        [difficulty]
+        max_no_competitors = 1
+        competitors_interval = 0
+
+        [ai]
+        ai_in_multiplayer = true
         """ + Environment.NewLine;
 
     private static string RenderSpectatorConfiguration() =>
         """
-        # Generated spectator defaults. Phase 02 owns client launch arguments.
-        # The loopback endpoint is selected from arena.local.yaml at launch time.
+        # Immutable Phase 02 spectator configuration template. The placeholder is replaced
+        # with a generated stable client identifier in each isolated run directory.
+        [version]
+        ini_version = 7
+
+        [misc]
+        language = english_US.lng
+        resolution = 2560,1440
+        gui_scale = 100
+
+        [network]
+        client_name = {{client_name}}
         """ + Environment.NewLine;
 
     private static void WriteTextIfChanged(string path, string content, string runtimeRoot)
@@ -512,12 +543,16 @@ public static class RuntimeLayoutInspector
             ArenaRuntimeLayout.GameDirectoryName,
             ArenaRuntimeLayout.ArenaGameScriptName,
             "RegisterGS",
+            "ARGS",
+            "1.2",
             missingOrInvalid);
         InspectPackage(
             openttdRoot,
             ArenaRuntimeLayout.AiDirectoryName,
             ArenaRuntimeLayout.ModelProxyAiName,
             "RegisterAI",
+            "MPAI",
+            "1.0",
             missingOrInvalid);
 
         InspectContentManifest(openttdRoot, missingOrInvalid);
@@ -621,38 +656,27 @@ public static class RuntimeLayoutInspector
                 Path.Combine(openttdRoot, ArenaRuntimeLayout.PrivateConfigurationFileName));
             RequireIniValue(privateConfiguration, "server_bind_addresses", expectedBindAddress, string.Empty, "private.cfg", missingOrInvalid);
 
-            Dictionary<string, string> serverCommands = ReadServerCommands(
+            Dictionary<string, Dictionary<string, string>> serverConfiguration = ParseIni(
                 Path.Combine(openttdRoot, ArenaRuntimeLayout.ServerConfigurationFileName));
-            KeyValuePair<string, string>[] requiredCommands =
-            {
-                new("network.server_port", ArenaRuntimeLayout.GameServerPort.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-                new("network.server_admin_port", expectedAdminPort.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-                new("network.server_game_type", "local"),
-                new("network.pause_on_join", "true"),
-            };
-            if (serverCommands.Count != requiredCommands.Length)
-            {
-                missingOrInvalid.Add("server.cfg");
-            }
-            else
-            {
-                foreach ((string key, string value) in requiredCommands)
-                {
-                    if (!serverCommands.TryGetValue(key, out string? actualValue) ||
-                        !string.Equals(actualValue, value, StringComparison.Ordinal))
-                    {
-                        missingOrInvalid.Add("server.cfg");
-                        break;
-                    }
-                }
-            }
+            RequireIniValue(serverConfiguration, "version", "ini_version", "7", "server.cfg", missingOrInvalid);
+            RequireIniValue(serverConfiguration, "misc", "language", "english_US.lng", "server.cfg", missingOrInvalid);
+            RequireIniValue(serverConfiguration, "network", "server_port", ArenaRuntimeLayout.GameServerPort.ToString(System.Globalization.CultureInfo.InvariantCulture), "server.cfg", missingOrInvalid);
+            RequireIniValue(serverConfiguration, "network", "server_admin_port", expectedAdminPort.ToString(System.Globalization.CultureInfo.InvariantCulture), "server.cfg", missingOrInvalid);
+            RequireIniValue(serverConfiguration, "network", "server_game_type", "local", "server.cfg", missingOrInvalid);
+            RequireIniValue(serverConfiguration, "network", "pause_on_join", "true", "server.cfg", missingOrInvalid);
+            RequireIniValue(serverConfiguration, "game_scripts", ArenaRuntimeLayout.ArenaGameScriptName, string.Empty, "server.cfg", missingOrInvalid);
+            RequireIniValue(serverConfiguration, "ai_players", ArenaRuntimeLayout.ModelProxyAiName, string.Empty, "server.cfg", missingOrInvalid);
+            RequireIniValue(serverConfiguration, "difficulty", "max_no_competitors", "1", "server.cfg", missingOrInvalid);
+            RequireIniValue(serverConfiguration, "difficulty", "competitors_interval", "0", "server.cfg", missingOrInvalid);
+            RequireIniValue(serverConfiguration, "ai", "ai_in_multiplayer", "true", "server.cfg", missingOrInvalid);
 
-            string spectatorConfiguration = ReadSmallFile(
+            Dictionary<string, Dictionary<string, string>> spectatorConfiguration = ParseIni(
                 Path.Combine(openttdRoot, ArenaRuntimeLayout.SpectatorConfigurationFileName));
-            if (!spectatorConfiguration.StartsWith("# Generated spectator defaults.", StringComparison.Ordinal))
-            {
-                missingOrInvalid.Add("spectator.cfg");
-            }
+            RequireIniValue(spectatorConfiguration, "version", "ini_version", "7", "spectator.cfg", missingOrInvalid);
+            RequireIniValue(spectatorConfiguration, "misc", "language", "english_US.lng", "spectator.cfg", missingOrInvalid);
+            RequireIniValue(spectatorConfiguration, "misc", "resolution", "2560,1440", "spectator.cfg", missingOrInvalid);
+            RequireIniValue(spectatorConfiguration, "misc", "gui_scale", "100", "spectator.cfg", missingOrInvalid);
+            RequireIniValue(spectatorConfiguration, "network", "client_name", "{{client_name}}", "spectator.cfg", missingOrInvalid);
         }
         catch (IOException)
         {
@@ -721,24 +745,6 @@ public static class RuntimeLayoutInspector
         }
     }
 
-    private static Dictionary<string, string> ReadServerCommands(string path)
-    {
-        Dictionary<string, string> commands = new(StringComparer.Ordinal);
-        foreach (string line in ReadSmallFile(path)
-                     .Split(LineSeparators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                     .Where(line => !line.StartsWith('#')))
-        {
-            string[] parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            if (parts.Length != 3 || !string.Equals(parts[0], "set", StringComparison.Ordinal) ||
-                !commands.TryAdd(parts[1], parts[2]))
-            {
-                throw new InvalidDataException("The generated server configuration is invalid.");
-            }
-        }
-
-        return commands;
-    }
-
     private static string ReadSmallFile(string path)
     {
         FileInfo file = new(path);
@@ -760,6 +766,8 @@ public static class RuntimeLayoutInspector
         string packageKind,
         string packageName,
         string registrationFunction,
+        string expectedShortName,
+        string expectedApiVersion,
         List<string> missingOrInvalid)
     {
         string packageRoot = Path.Combine(openttdRoot, packageKind, packageName);
@@ -773,9 +781,17 @@ public static class RuntimeLayoutInspector
 
         string metadata = ReadSmallFile(infoPath);
         if (!metadata.Contains(packageName, StringComparison.Ordinal) ||
-            !metadata.Contains(registrationFunction, StringComparison.Ordinal))
+            !metadata.Contains(registrationFunction, StringComparison.Ordinal) ||
+            !HasMetadataStringFunction(metadata, "GetShortName", expectedShortName) ||
+            !HasMetadataStringFunction(metadata, "GetAPIVersion", expectedApiVersion))
         {
             missingOrInvalid.Add($"{packageName} metadata");
         }
     }
+
+    private static bool HasMetadataStringFunction(string metadata, string functionName, string expectedValue) =>
+        Regex.IsMatch(
+            metadata,
+            $@"function\s+{Regex.Escape(functionName)}\s*\(\s*\)\s*\{{\s*return\s+""{Regex.Escape(expectedValue)}""\s*;\s*\}}",
+            RegexOptions.CultureInvariant);
 }

@@ -100,7 +100,7 @@ public sealed class DoctorService
         checks.Add(Warning(
             "adminport-handshake",
             "AdminPort authentication and protocol compatibility are deferred until Phase 03.",
-            "Phase 02 will launch the isolated runtime; Phase 03 adds the authenticated protocol check."));
+            "Use the Phase 02 smoke command for isolated lifecycle verification; Phase 03 adds the authenticated protocol check."));
 
         return new DoctorReport(1, _clock.UtcNow, checks);
     }

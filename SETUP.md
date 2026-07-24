@@ -1,6 +1,6 @@
 # Windows Setup Guide
 
-> Status: Phase 01 is implemented. It provisions repository-local setup state and diagnoses prerequisites. It does not launch a game, send AdminPort messages, call a provider, or record a benchmark; those begin in later phases.
+> Status: Phases 01 and 02 are implemented. Setup provisions and diagnoses the repository-local runtime; Phase 02 can also launch a provider-free isolated OpenTTD smoke lifecycle. AdminPort gameplay commands, provider calls, recording, scoring, and benchmark scenarios remain later phases.
 
 ## Supported host
 
@@ -268,6 +268,51 @@ if ($LASTEXITCODE -ne 0) {
 }
 ```
 
+## Run the provider-free Phase 02 smoke
+
+After bootstrap has copied a valid OpenTTD installation, run the unattended lifecycle smoke from the repository root:
+
+```powershell
+pwsh ./scripts/smoke.ps1 -DurationSeconds 10
+```
+
+The direct CLI form is equivalent:
+
+```powershell
+pwsh ./scripts/ttd-arena.ps1 smoke --duration-seconds 10
+```
+
+This command does not use a provider, provider credential, OBS, OBS WebSocket, or AdminPort. It needs the isolated OpenTTD runtime and an available loopback game port. Therefore an OBS-specific `doctor` block does not prevent this provider-free Phase 02 verification, although all doctor blocks must be resolved before later recording or benchmark phases.
+
+The smoke command creates a unique directory below `.runtime/runs/`. It copies a cached fixed starting save into `input/`, starts an isolated dedicated server, verifies the ArenaGS/ModelProxyAI readiness markers, opens three spectator windows, saves a checkpoint, advances briefly, finalizes a save, and shuts down every process it launched. It writes `lifecycle.ndjson`, `run-result.json`, and separate component logs. Any OpenTTD-generated `secrets.cfg` is removed before results are indexed.
+
+While it runs, you can visually validate three briefly visible spectator windows with titles beginning:
+
+- `Arena - Wide`
+- `Arena - Medium`
+- `Arena - Close`
+
+The dedicated server has no player window. Phase 02 does not yet alter OBS or create a recording, so the absence of an OBS scene switch or video is expected. When the command completes, all three spectator windows should close.
+
+Verify the finished artifacts and cleanup:
+
+```powershell
+$run = Get-ChildItem .runtime/runs -Directory |
+    Sort-Object LastWriteTimeUtc -Descending |
+    Select-Object -First 1
+
+Get-Content (Join-Path $run.FullName 'lifecycle.ndjson')
+$result = Get-Content (Join-Path $run.FullName 'run-result.json') -Raw | ConvertFrom-Json
+$result.final_state
+$result.exit_reason
+Get-ChildItem $run.FullName -Recurse -Filter '*.sav' | Select-Object FullName, Length
+Get-ChildItem $run.FullName -Recurse -Filter 'secrets.cfg'
+Get-Process openttd -ErrorAction SilentlyContinue
+Get-NetTCPConnection -State Listen -LocalPort 3979 -ErrorAction SilentlyContinue
+```
+
+Expect `completed` for both result fields, at least the copied starting, checkpoint, and final save artifacts, and no output from the final three cleanup checks. For the complete requirement map, cancellation check, and five-sequential-run procedure, see [Phase 02 acceptance evidence](docs/phase-02-acceptance.md).
+
 ## Build and test
 
 Run the canonical repository quality gate on the supported Windows host:
@@ -276,7 +321,7 @@ Run the canonical repository quality gate on the supported Windows host:
 pwsh ./scripts/test-all.ps1
 ```
 
-It runs schema, formatting, architecture, secret, OpenTTD package, .NET unit, CLI version, and overlay test/build checks. CI additionally parses every setup PowerShell script on Windows. `test-all.ps1` does not start OpenTTD, connect to OBS, or call a provider because those operations are outside Phase 01's unit-quality gate.
+It runs schema, formatting, architecture, secret, OpenTTD package, .NET unit, CLI version, and overlay test/build checks. CI additionally parses every setup PowerShell script on Windows. `test-all.ps1` does not start OpenTTD, connect to OBS, or call a provider; run the explicit Phase 02 smoke above for live lifecycle evidence.
 
 ## Cleanup
 
@@ -290,11 +335,11 @@ It removes only disposable build outputs, `.runtime/cache`, `.runtime/temp`, `.t
 
 ## Current boundary
 
-Phase 01 makes a Windows host repeatable and diagnosable. The following commands are not implemented yet and must not be treated as setup verification:
+Phases 01–02 make a Windows host repeatable, diagnosable, and capable of a provider-free isolated smoke lifecycle. The following commands are not implemented yet and must not be treated as benchmark verification:
 
 - `ttd-arena run`
 - `ttd-arena verify-run`
-- OpenTTD process launch, pause, save/load, or AdminPort command execution
+- AdminPort gameplay command execution or detailed game observation
 - provider model requests
 - OBS scene switching or recording
 

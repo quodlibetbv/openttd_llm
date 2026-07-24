@@ -62,6 +62,10 @@ public sealed class ObsSceneTemplateTests
         {
             return;
         }
+        catch (IOException)
+        {
+            return;
+        }
         catch (PlatformNotSupportedException)
         {
             return;

@@ -1,3 +1,18 @@
 using OpenTtd.ModelArena.Cli;
 
-return await ArenaCommandLine.RunAsync(args, CancellationToken.None);
+using CancellationTokenSource cancellation = new();
+ConsoleCancelEventHandler cancelHandler = (_, eventArgs) =>
+{
+    eventArgs.Cancel = true;
+    cancellation.Cancel();
+};
+
+Console.CancelKeyPress += cancelHandler;
+try
+{
+    return await ArenaCommandLine.RunAsync(args, cancellation.Token);
+}
+finally
+{
+    Console.CancelKeyPress -= cancelHandler;
+}

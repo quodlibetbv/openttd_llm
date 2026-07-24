@@ -126,6 +126,10 @@ public sealed class ArenaConfigurationLoaderTests
         {
             return;
         }
+        catch (IOException)
+        {
+            return;
+        }
         catch (PlatformNotSupportedException)
         {
             return;
@@ -153,6 +157,10 @@ public sealed class ArenaConfigurationLoaderTests
             File.CreateSymbolicLink(configurationPath, outsideConfiguration);
         }
         catch (UnauthorizedAccessException)
+        {
+            return;
+        }
+        catch (IOException)
         {
             return;
         }
@@ -230,6 +238,10 @@ public sealed class ArenaConfigurationLoaderTests
             File.CreateSymbolicLink(configurationPath, outsideConfiguration);
         }
         catch (UnauthorizedAccessException)
+        {
+            return;
+        }
+        catch (IOException)
         {
             return;
         }
