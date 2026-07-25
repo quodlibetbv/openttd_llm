@@ -4,6 +4,14 @@ public static class ArenaErrorCodes
 {
     public const string ProviderTimeout = "ARENA-PROVIDER-TIMEOUT";
     public const string ProviderInvalidOutput = "ARENA-PROVIDER-INVALID-OUTPUT";
+    public const string ProviderInvalidJson = "ARENA-PROVIDER-INVALID-JSON";
+    public const string ProviderSchemaMismatch = "ARENA-PROVIDER-SCHEMA-MISMATCH";
+    public const string ProviderAuthenticationFailed = "ARENA-PROVIDER-AUTHENTICATION-FAILED";
+    public const string ProviderRateLimited = "ARENA-PROVIDER-RATE-LIMITED";
+    public const string ProviderRequestFailed = "ARENA-PROVIDER-REQUEST-FAILED";
+    public const string ProviderCancelled = "ARENA-PROVIDER-CANCELLED";
+    public const string ProviderConfigurationInvalid = "ARENA-PROVIDER-CONFIGURATION-INVALID";
+    public const string ProviderNotConfigured = "ARENA-PROVIDER-NOT-CONFIGURED";
     public const string ProviderReplayExhausted = "ARENA-PROVIDER-REPLAY-EXHAUSTED";
     public const string ProviderReplayObservationMismatch = "ARENA-PROVIDER-REPLAY-OBSERVATION-MISMATCH";
     public const string ProtocolVersionMismatch = "ARENA-PROTOCOL-VERSION-MISMATCH";
@@ -21,6 +29,12 @@ public static class ArenaErrorCodes
     public const string AdminPortSecretInvalid = "ARENA-ADMINPORT-SECRET-INVALID";
     public const string ActionConstraintViolation = "ARENA-ACTION-CONSTRAINT-VIOLATION";
     public const string ActionPathNotFound = "ARENA-ACTION-PATH-NOT-FOUND";
+    public const string ActionStationPlacementFailed = "ARENA-ACTION-STATION-PLACEMENT-FAILED";
+    public const string ActionBudgetExceeded = "ARENA-ACTION-BUDGET-EXCEEDED";
+    public const string ActionInsufficientFunds = "ARENA-ACTION-INSUFFICIENT-FUNDS";
+    public const string ActionVehicleUnsuitable = "ARENA-ACTION-VEHICLE-UNSUITABLE";
+    public const string ActionOrderInvalid = "ARENA-ACTION-ORDER-INVALID";
+    public const string ActionVerificationTimedOut = "ARENA-ACTION-VERIFICATION-TIMED-OUT";
     public const string OpenTtdProcessExited = "ARENA-OPENTTD-PROCESS-EXITED";
     public const string ObsRecordingFailed = "ARENA-OBS-RECORDING-FAILED";
     public const string ArtifactVerificationFailed = "ARENA-ARTIFACT-VERIFICATION-FAILED";

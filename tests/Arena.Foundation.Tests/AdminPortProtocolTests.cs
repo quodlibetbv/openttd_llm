@@ -435,6 +435,39 @@ public sealed class AdminPortProtocolTests
         await server.WaitAsync(TimeSpan.FromSeconds(2));
     }
 
+    [Fact]
+    public async Task PreservesABoundedPrintableArenaGsErrorMessage()
+    {
+        using TcpListener listener = StartListener();
+        Task server = Task.Run(async () =>
+        {
+            using TcpClient connection = await listener.AcceptTcpClientAsync();
+            NetworkStream stream = await CompleteHandshakeAsync(connection);
+            ProtocolEnvelope request = await ReadRequestAsync(stream);
+            await SendEnvelopeAsync(
+                stream,
+                CreateResponse(
+                    request,
+                    ProtocolMessageTypes.Error,
+                    "{\"error_code\":\"ARENA-ACTION-PATH-NOT-FOUND\",\"message\":\"The bounded road search exhausted its deterministic frontier.\"}"));
+            await Task.Delay(TimeSpan.FromMilliseconds(250));
+        });
+
+        await using AdminPortBridgeClient client = await AdminPortBridgeClient.ConnectAsync(
+            CreateOptions(GetPort(listener)),
+            Encoding.ASCII.GetBytes("A9-b_C!dEfGhJkLmNpQrStUv"),
+            CancellationToken.None);
+        AdminPortRequestResult result = await client.RequestAsync(
+            CreateEnvelope(ProtocolMessageTypes.Heartbeat, "heartbeat-key"),
+            TimeSpan.FromSeconds(2),
+            CancellationToken.None);
+
+        await server.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.False(result.Succeeded);
+        Assert.Equal(ArenaErrorCodes.ActionPathNotFound, result.ErrorCode);
+        Assert.Equal("The bounded road search exhausted its deterministic frontier.", result.UserMessage);
+    }
+
     private static ProtocolEnvelope CreateEnvelope(string messageType, string? idempotencyKey, string payload = "{}")
     {
         using JsonDocument document = JsonDocument.Parse(payload);

@@ -46,7 +46,12 @@ public sealed record ProviderLocalConfiguration(
     string Id,
     string Type,
     Uri? BaseUri,
-    CredentialReference? CredentialReference);
+    CredentialReference? CredentialReference,
+    string? Model = null,
+    int TimeoutSeconds = 30,
+    int MaximumTransientRetries = 1,
+    decimal? InputCostPerMillionTokens = null,
+    decimal? OutputCostPerMillionTokens = null);
 
 public sealed record ProviderLocalConfigurationSet(
     string ConfigurationPath,
@@ -357,10 +362,19 @@ public static class ArenaConfigurationLoader
             }
 
             Dictionary<string, YamlNode> providerValues = ReadMapping(providerNode, field, errors);
-            ValidateKnownFields(providerValues, ["type", "base_url", "credential_ref"], field, errors);
+            ValidateKnownFields(
+                providerValues,
+                ["type", "base_url", "credential_ref", "model", "timeout_seconds", "maximum_transient_retries", "input_cost_per_million_tokens", "output_cost_per_million_tokens"],
+                field,
+                errors);
             string? type = RequiredString(providerValues, "type", $"{field}.type", errors);
             string? baseUrlText = OptionalString(providerValues, "base_url", $"{field}.base_url", errors);
             string? credentialText = OptionalString(providerValues, "credential_ref", $"{field}.credential_ref", errors);
+            string? model = OptionalString(providerValues, "model", $"{field}.model", errors);
+            int? timeoutSeconds = OptionalInteger(providerValues, "timeout_seconds", $"{field}.timeout_seconds", 1, 300, errors);
+            int? maximumTransientRetries = OptionalInteger(providerValues, "maximum_transient_retries", $"{field}.maximum_transient_retries", 0, 2, errors);
+            decimal? inputCostPerMillionTokens = OptionalDecimal(providerValues, "input_cost_per_million_tokens", $"{field}.input_cost_per_million_tokens", errors);
+            decimal? outputCostPerMillionTokens = OptionalDecimal(providerValues, "output_cost_per_million_tokens", $"{field}.output_cost_per_million_tokens", errors);
             Uri? baseUri = null;
             if (type is { Length: > MaximumProviderTypeLength })
             {
@@ -384,9 +398,23 @@ public static class ArenaConfigurationLoader
             CredentialReference? credentialReference = credentialText is null
                 ? null
                 : ParseCredentialReference(credentialText, $"{field}.credential_ref", errors);
+            if (model is { Length: > 160 })
+            {
+                AddError(errors, $"{field}.model", ArenaErrorCodes.ConfigurationInvalid, $"{field}.model must be no longer than 160 characters.");
+            }
+
             if (type is not null)
             {
-                providers[providerId] = new ProviderLocalConfiguration(providerId, type, baseUri, credentialReference);
+                providers[providerId] = new ProviderLocalConfiguration(
+                    providerId,
+                    type,
+                    baseUri,
+                    credentialReference,
+                    model,
+                    timeoutSeconds ?? 30,
+                    maximumTransientRetries ?? 1,
+                    inputCostPerMillionTokens,
+                    outputCostPerMillionTokens);
             }
         }
 
@@ -592,6 +620,56 @@ public static class ArenaConfigurationLoader
             value > maximum)
         {
             AddError(errors, field, ArenaErrorCodes.ConfigurationInvalid, $"{field} must be an integer between {minimum} and {maximum}.");
+            return null;
+        }
+
+        return value;
+    }
+
+    private static int? OptionalInteger(
+        Dictionary<string, YamlNode> values,
+        string key,
+        string field,
+        int minimum,
+        int maximum,
+        List<ConfigurationValidationError> errors)
+    {
+        if (!values.TryGetValue(key, out YamlNode? node))
+        {
+            return null;
+        }
+
+        string? text = ReadString(node, field, errors);
+        if (text is null ||
+            !int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out int value) ||
+            value < minimum ||
+            value > maximum)
+        {
+            AddError(errors, field, ArenaErrorCodes.ConfigurationInvalid, $"{field} must be an integer between {minimum} and {maximum}.");
+            return null;
+        }
+
+        return value;
+    }
+
+    private static decimal? OptionalDecimal(
+        Dictionary<string, YamlNode> values,
+        string key,
+        string field,
+        List<ConfigurationValidationError> errors)
+    {
+        if (!values.TryGetValue(key, out YamlNode? node))
+        {
+            return null;
+        }
+
+        string? text = ReadString(node, field, errors);
+        if (text is null ||
+            !decimal.TryParse(text, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out decimal value) ||
+            value < 0 ||
+            value > 1_000_000m)
+        {
+            AddError(errors, field, ArenaErrorCodes.ConfigurationInvalid, $"{field} must be a non-negative decimal no greater than 1000000.");
             return null;
         }
 

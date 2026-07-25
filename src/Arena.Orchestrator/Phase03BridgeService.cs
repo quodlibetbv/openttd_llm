@@ -40,6 +40,46 @@ public sealed record Phase03BridgeSmokeResult(
     IReadOnlyList<Phase03BridgeCheck> Checks);
 
 /// <summary>
+/// Supplies a narrowly-scoped post-protocol proof while the trusted bridge has
+/// an authenticated, live GameScript session. Extensions are deliberately
+/// given only the AdminPort client, a run-root path policy, and an optional
+/// supervisor-only save/load operation. A model provider never receives any
+/// of these capabilities.
+/// </summary>
+public sealed record Phase03BridgeExtensionContext(
+    string RunId,
+    RunPathPolicy Paths,
+    ArenaLocalConfiguration Configuration,
+    AdminPortBridgeClient Bridge,
+    TimeSpan RequestTimeout,
+    IPhase03SaveLoadController? SaveLoadController = null);
+
+public sealed record Phase03BridgeExtensionResult(
+    bool Succeeded,
+    string? ErrorCode,
+    string Detail,
+    IReadOnlyList<Phase03BridgeCheck> Checks)
+{
+    public static Phase03BridgeExtensionResult Success(
+        string detail,
+        IReadOnlyList<Phase03BridgeCheck> checks) =>
+        new(true, null, detail, checks);
+
+    public static Phase03BridgeExtensionResult Failure(
+        string errorCode,
+        string detail,
+        IReadOnlyList<Phase03BridgeCheck>? checks = null) =>
+        new(false, errorCode, detail, checks ?? []);
+}
+
+public interface IPhase03BridgeExtension
+{
+    Task<Phase03BridgeExtensionResult> RunAsync(
+        Phase03BridgeExtensionContext context,
+        CancellationToken cancellationToken);
+}
+
+/// <summary>
 /// Runs the provider-free, real OpenTTD Phase 03 transport proof. It owns the
 /// isolated server process and AdminPort credential material, while all game
 /// operations pass through the authenticated ArenaGS protocol.
@@ -83,6 +123,20 @@ public sealed class Phase03BridgeService
         ArenaLocalConfiguration configuration,
         Phase03BridgeSmokeOptions options,
         CancellationToken cancellationToken)
+        => await RunAsync(configuration, options, null, cancellationToken);
+
+    /// <summary>
+    /// Runs the Phase 03 transport proof and, optionally, an immediately
+    /// downstream capability proof before finalizing the GameScript session.
+    /// This preserves the finalized protocol boundary for ordinary bridge
+    /// smoke runs while allowing later phases to use the exact same trusted
+    /// process lifecycle.
+    /// </summary>
+    public async Task<Phase03BridgeSmokeResult> RunAsync(
+        ArenaLocalConfiguration configuration,
+        Phase03BridgeSmokeOptions options,
+        IPhase03BridgeExtension? extension,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(options);
@@ -97,6 +151,7 @@ public sealed class Phase03BridgeService
         using RunLifecycleJournal journal = new(allocation.RunId, allocation.Paths);
         IManagedArenaProcess? server = null;
         AdminPortBridgeClient? client = null;
+        IPhase03SaveLoadController? saveLoadController = null;
         string? secretPath = null;
         string? errorCode = null;
         bool succeeded = false;
@@ -188,6 +243,13 @@ public sealed class Phase03BridgeService
                     credential.Secret.Bytes,
                     cancellationToken,
                     _timeProvider);
+                saveLoadController = new Phase03SaveLoadController(
+                    allocation.Paths,
+                    workspace.SaveDirectory,
+                    server,
+                    _consoleBridge,
+                    options.StartupTimeout,
+                    _timeProvider);
             }
             finally
             {
@@ -204,6 +266,32 @@ public sealed class Phase03BridgeService
             await RunProtocolChecksAsync(
                 client,
                 configuration.RepositoryRoot,
+                allocation.RunId,
+                checks,
+                options.RequestTimeout,
+                cancellationToken);
+            if (extension is not null)
+            {
+                Phase03BridgeExtensionResult extensionResult = await extension.RunAsync(
+                    new Phase03BridgeExtensionContext(
+                        allocation.RunId,
+                        allocation.Paths,
+                        configuration,
+                        client,
+                        options.RequestTimeout,
+                        saveLoadController),
+                    cancellationToken);
+                checks.AddRange(extensionResult.Checks);
+                if (!extensionResult.Succeeded || extensionResult.Checks.Any(check => !check.Passed))
+                {
+                    throw new BridgeSmokeException(
+                        extensionResult.ErrorCode ?? extensionResult.Checks.FirstOrDefault(check => !check.Passed)?.ErrorCode ?? ArenaErrorCodes.RunPreparationFailed,
+                        extensionResult.Detail);
+                }
+            }
+
+            await FinalizeProtocolAsync(
+                client,
                 allocation.RunId,
                 checks,
                 options.RequestTimeout,
@@ -457,6 +545,15 @@ public sealed class Phase03BridgeService
 
         checks.Add(Pass("chunk-timeout", "ArenaGS expired an intentionally incomplete chunk transfer with the deterministic timeout error."));
 
+    }
+
+    private static async Task FinalizeProtocolAsync(
+        AdminPortBridgeClient client,
+        string runId,
+        List<Phase03BridgeCheck> checks,
+        TimeSpan requestTimeout,
+        CancellationToken cancellationToken)
+    {
         ProtocolEnvelope finalize = CreateRequest(ProtocolMessageTypes.FinalizeRequest, runId, 8, "{}");
         _ = await RequireResultAsync(client, finalize, requestTimeout, cancellationToken);
         checks.Add(Pass("finalize", "ArenaGS acknowledged a correlated finalization request."));

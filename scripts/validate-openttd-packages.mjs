@@ -19,8 +19,8 @@ export function validateOpenTtdPackages() {
   }
 
   if (!/function GetShortName\(\)\s*\{\s*return "ARGS";\s*\}/.test(gameInfo) ||
-      !/function GetAPIVersion\(\)\s*\{\s*return "1\.2";\s*\}/.test(gameInfo)) {
-    errors.push("ArenaGS must declare the supported ARGS short name and GameScript API 1.2.");
+      !/function GetAPIVersion\(\)\s*\{\s*return "14";\s*\}/.test(gameInfo)) {
+    errors.push("ArenaGS must declare the supported ARGS short name and GameScript API 14.");
   }
 
   if (!/class ArenaGS extends GSController/.test(gameMain) ||
@@ -70,6 +70,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
 
     process.exitCode = 1;
   } else {
-    console.log("OpenTTD package metadata is valid for Phase 03");
+    console.log("OpenTTD package metadata is valid for Phases 03-06");
   }
 }

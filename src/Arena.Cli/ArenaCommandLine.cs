@@ -23,7 +23,7 @@ public static class ArenaCommandLine
         {
             if (args.Length == 1 && string.Equals(args[0], "--version", StringComparison.Ordinal))
             {
-                Console.WriteLine("ttd-arena 0.3.0 (Phase 03 AdminPort bridge)");
+                Console.WriteLine("ttd-arena 0.6.0 (Phase 04-06 road MVP)");
                 return 0;
             }
 
@@ -45,7 +45,15 @@ public static class ArenaCommandLine
                 "doctor" => await RunDoctorAsync(repositoryRoot, args[1..], cancellationToken),
                 "smoke" => await RunSmokeAsync(repositoryRoot, args[1..], cancellationToken),
                 "bridge-smoke" => await RunBridgeSmokeAsync(repositoryRoot, args[1..], cancellationToken),
+                "observation-smoke" => await RunObservationSmokeAsync(repositoryRoot, args[1..], cancellationToken),
+                "road-smoke" => await RunRoadSmokeAsync(repositoryRoot, args[1..], cancellationToken),
+                "fleet-smoke" => await RunFleetSmokeAsync(repositoryRoot, args[1..], cancellationToken),
+                "road-save-load-smoke" => await RunRoadSaveLoadSmokeAsync(repositoryRoot, args[1..], cancellationToken),
+                "road-budget-smoke" => await RunRoadBudgetSmokeAsync(repositoryRoot, args[1..], cancellationToken),
+                "provider-road-smoke" => await RunProviderRoadSmokeAsync(repositoryRoot, args[1..], cancellationToken),
+                "observations" => await RunObservationsAsync(repositoryRoot, args[1..], cancellationToken),
                 "credentials" => await RunCredentialsAsync(repositoryRoot, args[1..], cancellationToken),
+                "providers" => await RunProvidersAsync(repositoryRoot, args[1..], cancellationToken),
                 _ => UnknownCommand(args[0]),
             };
         }
@@ -160,6 +168,92 @@ public static class ArenaCommandLine
             "test" => await TestCredentialAsync(repositoryRoot, arguments.Skip(1).ToArray(), cancellationToken),
             _ => UnknownCommand($"credentials {arguments[0]}"),
         };
+    }
+
+    private static async Task<int> RunProvidersAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (arguments.Count == 0 || IsHelp(arguments[0]))
+        {
+            Console.WriteLine("Usage: ttd-arena providers <list|test> [provider-id] [--providers-config <path>]");
+            return arguments.Count == 0 ? 1 : 0;
+        }
+
+        return arguments[0] switch
+        {
+            "list" => await ListProvidersAsync(repositoryRoot, arguments.Skip(1).ToArray(), cancellationToken),
+            "test" => await TestProviderAsync(repositoryRoot, arguments.Skip(1).ToArray(), cancellationToken),
+            _ => UnknownCommand($"providers {arguments[0]}"),
+        };
+    }
+
+    private static async Task<int> RunObservationsAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (arguments.Count == 0 || IsHelp(arguments[0]))
+        {
+            Console.WriteLine("Usage: ttd-arena observations replay <run-directory|observations.ndjson> [--json]");
+            return arguments.Count == 0 ? 1 : 0;
+        }
+
+        return arguments[0] switch
+        {
+            "replay" => await ReplayObservationsAsync(repositoryRoot, arguments.Skip(1).ToArray(), cancellationToken),
+            _ => UnknownCommand($"observations {arguments[0]}"),
+        };
+    }
+
+    private static async Task<int> ReplayObservationsAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (!TryParseOptions(arguments, ["--json"], out CliOptions options) || options.Positionals.Count != 1)
+        {
+            return WriteUsageError("Usage: ttd-arena observations replay <run-directory|observations.ndjson> [--json]");
+        }
+
+        string supplied = options.Positionals[0];
+        string candidate = Path.IsPathRooted(supplied)
+            ? Path.GetFullPath(supplied)
+            : Path.GetFullPath(Path.Combine(repositoryRoot, supplied));
+        string observationsPath = Directory.Exists(candidate)
+            ? Path.Combine(candidate, ObservationArtifactWriter.ObservationsFileName)
+            : candidate;
+        ObservationReplayResult result = await ObservationReplayReader.ReadAsync(observationsPath, cancellationToken);
+        if (options.Flags.Contains("--json"))
+        {
+            Console.WriteLine(JsonSerializer.Serialize(result, DoctorJsonOptions));
+        }
+        else if (result.Succeeded)
+        {
+            ObservationReplayFrame latest = result.Frames[^1];
+            Console.WriteLine("Observation replay verified.");
+            Console.WriteLine($"  records: {result.Frames.Count}");
+            Console.WriteLine($"  run: {latest.RunId}");
+            Console.WriteLine($"  latest game date: {latest.GameDate}");
+            Console.WriteLine($"  cash / loan: {latest.Cash} / {latest.Loan}");
+            Console.WriteLine($"  routes / active projects: {latest.RouteCount} / {latest.ActiveProjectCount}");
+            if (latest.TopOpportunityId is not null)
+            {
+                Console.WriteLine($"  top opportunity: {latest.TopOpportunityId}");
+            }
+
+            if (latest.LatestEventCode is not null)
+            {
+                Console.WriteLine($"  latest event: {latest.LatestEventCode}");
+            }
+        }
+        else
+        {
+            Console.Error.WriteLine($"{result.ErrorCode}: {SecretRedactor.Redact(result.Detail)}");
+        }
+
+        return result.Succeeded ? 0 : 2;
     }
 
     private static async Task<int> RunSmokeAsync(
@@ -315,6 +409,449 @@ public static class ArenaCommandLine
         return string.Equals(result.ErrorCode, ArenaErrorCodes.RunCancelled, StringComparison.Ordinal) ? 130 : 2;
     }
 
+    private static async Task<int> RunObservationSmokeAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (!TryParseOptions(
+                arguments,
+                ["--config", "--startup-timeout-seconds", "--request-timeout-seconds", "--shutdown-timeout-seconds", "--json"],
+                out CliOptions options))
+        {
+            return WriteUsageError(options.ErrorMessage);
+        }
+
+        if (options.Positionals.Count > 0)
+        {
+            return WriteUsageError("observation-smoke does not accept positional arguments.");
+        }
+
+        ArenaConfigurationLoadResult configurationResult = await ArenaConfigurationLoader.LoadArenaAsync(
+            repositoryRoot,
+            ResolveRepositoryOptionPath(repositoryRoot, options, "--config", ".config/arena.local.yaml"),
+            cancellationToken);
+        if (!configurationResult.Succeeded || configurationResult.Configuration is null)
+        {
+            foreach (ConfigurationValidationError error in configurationResult.Errors)
+            {
+                Console.Error.WriteLine($"{error.Code}: {SecretRedactor.Redact(error.Message)}");
+            }
+
+            return 2;
+        }
+
+        if (!TryGetBoundedSeconds(options, "--startup-timeout-seconds", 60, 5, 300, out int startupTimeoutSeconds) ||
+            !TryGetBoundedSeconds(options, "--request-timeout-seconds", 20, 8, 60, out int requestTimeoutSeconds) ||
+            !TryGetBoundedSeconds(options, "--shutdown-timeout-seconds", 15, 2, 120, out int shutdownTimeoutSeconds))
+        {
+            return WriteUsageError("Observation-smoke timeouts must be whole seconds within the documented bridge bounds.");
+        }
+
+        Phase03BridgeService service = new(
+            new RunDirectoryAllocator(),
+            new SystemArenaProcessFactory(),
+            new CliOpenTtdConsoleBridge(),
+            new TcpLoopbackReadinessProbe(),
+            new WindowsCredentialStore());
+        Phase03BridgeSmokeResult result = await service.RunAsync(
+            configurationResult.Configuration,
+            new Phase03BridgeSmokeOptions(
+                TimeSpan.FromSeconds(startupTimeoutSeconds),
+                TimeSpan.FromSeconds(requestTimeoutSeconds),
+                TimeSpan.FromSeconds(shutdownTimeoutSeconds)),
+            new Phase04ObservationBridgeExtension(),
+            cancellationToken);
+
+        if (options.Flags.Contains("--json"))
+        {
+            Console.WriteLine(JsonSerializer.Serialize(result, DoctorJsonOptions));
+        }
+        else
+        {
+            string runDirectory = Path.Combine(configurationResult.Configuration.Runtime.Runs, result.RunId);
+            Console.WriteLine($"Phase 04 observation smoke {(result.Succeeded ? "completed" : "failed")}.");
+            Console.WriteLine($"  run: {runDirectory}");
+            Console.WriteLine($"  result: {Path.Combine(runDirectory, "bridge-result.json")}");
+            Console.WriteLine($"  observations: {Path.Combine(runDirectory, ObservationArtifactWriter.ObservationsFileName)}");
+            Console.WriteLine($"  events: {Path.Combine(runDirectory, ObservationArtifactWriter.GameEventsFileName)}");
+            if (result.ErrorCode is not null)
+            {
+                Console.WriteLine($"  error: {result.ErrorCode}");
+            }
+        }
+
+        return result.Succeeded
+            ? 0
+            : string.Equals(result.ErrorCode, ArenaErrorCodes.RunCancelled, StringComparison.Ordinal) ? 130 : 2;
+    }
+
+    private static Task<int> RunRoadSmokeAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken) =>
+        RunRoadSmokeCoreAsync(repositoryRoot, arguments, false, "road-smoke", "Phase 06 replay road smoke", cancellationToken);
+
+    private static Task<int> RunFleetSmokeAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken) =>
+        RunRoadSmokeCoreAsync(repositoryRoot, arguments, true, "fleet-smoke", "Phase 06 replay road and fleet smoke", cancellationToken);
+
+    private static async Task<int> RunRoadSaveLoadSmokeAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (!TryParseOptions(
+                arguments,
+                ["--stage", "--config", "--startup-timeout-seconds", "--request-timeout-seconds", "--shutdown-timeout-seconds", "--json"],
+                out CliOptions options))
+        {
+            return WriteUsageError(options.ErrorMessage);
+        }
+
+        if (options.Positionals.Count > 0 ||
+            !options.Values.TryGetValue("--stage", out string? stage) ||
+            !RoadProjectCheckpointStages.All.Contains(stage))
+        {
+            return WriteUsageError(
+                "Usage: ttd-arena road-save-load-smoke --stage <proposed|validating|surveying|building_infrastructure|buying_vehicles|configuring_orders|verifying> [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+        }
+
+        string checkpointStage = stage;
+
+        ArenaConfigurationLoadResult configurationResult = await ArenaConfigurationLoader.LoadArenaAsync(
+            repositoryRoot,
+            ResolveRepositoryOptionPath(repositoryRoot, options, "--config", ".config/arena.local.yaml"),
+            cancellationToken);
+        if (!configurationResult.Succeeded || configurationResult.Configuration is null)
+        {
+            foreach (ConfigurationValidationError error in configurationResult.Errors)
+            {
+                Console.Error.WriteLine($"{error.Code}: {SecretRedactor.Redact(error.Message)}");
+            }
+
+            return 2;
+        }
+
+        if (!TryGetBoundedSeconds(options, "--startup-timeout-seconds", 60, 5, 300, out int startupTimeoutSeconds) ||
+            !TryGetBoundedSeconds(options, "--request-timeout-seconds", 20, 8, 60, out int requestTimeoutSeconds) ||
+            !TryGetBoundedSeconds(options, "--shutdown-timeout-seconds", 15, 2, 120, out int shutdownTimeoutSeconds))
+        {
+            return WriteUsageError("road-save-load-smoke timeouts must be whole seconds within the documented bridge bounds.");
+        }
+
+        Phase03BridgeService service = new(
+            new RunDirectoryAllocator(),
+            new SystemArenaProcessFactory(),
+            new CliOpenTtdConsoleBridge(),
+            new TcpLoopbackReadinessProbe(),
+            new WindowsCredentialStore());
+        Phase03BridgeSmokeResult result = await service.RunAsync(
+            configurationResult.Configuration,
+            new Phase03BridgeSmokeOptions(
+                TimeSpan.FromSeconds(startupTimeoutSeconds),
+                TimeSpan.FromSeconds(requestTimeoutSeconds),
+                TimeSpan.FromSeconds(shutdownTimeoutSeconds)),
+            new Phase06SaveLoadBridgeExtension(checkpointStage),
+            cancellationToken);
+
+        if (options.Flags.Contains("--json"))
+        {
+            Console.WriteLine(JsonSerializer.Serialize(result, DoctorJsonOptions));
+        }
+        else
+        {
+            string runDirectory = Path.Combine(configurationResult.Configuration.Runtime.Runs, result.RunId);
+            Console.WriteLine($"Phase 06 {checkpointStage} save/load smoke {(result.Succeeded ? "completed" : "failed")}.");
+            Console.WriteLine($"  run: {runDirectory}");
+            Console.WriteLine($"  result: {Path.Combine(runDirectory, "bridge-result.json")}");
+            Console.WriteLine($"  checkpoint: {Path.Combine(runDirectory, "checkpoints", "phase06-save-load-" + checkpointStage.Replace('_', '-') + ".sav")}");
+            if (result.ErrorCode is not null)
+            {
+                Console.WriteLine($"  error: {result.ErrorCode}");
+            }
+        }
+
+        return result.Succeeded
+            ? 0
+            : string.Equals(result.ErrorCode, ArenaErrorCodes.RunCancelled, StringComparison.Ordinal) ? 130 : 2;
+    }
+
+    private static async Task<int> RunRoadBudgetSmokeAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (!TryParseOptions(
+                arguments,
+                ["--config", "--startup-timeout-seconds", "--request-timeout-seconds", "--shutdown-timeout-seconds", "--json"],
+                out CliOptions options))
+        {
+            return WriteUsageError(options.ErrorMessage);
+        }
+
+        if (options.Positionals.Count > 0)
+        {
+            return WriteUsageError("road-budget-smoke does not accept positional arguments.");
+        }
+
+        ArenaConfigurationLoadResult configurationResult = await ArenaConfigurationLoader.LoadArenaAsync(
+            repositoryRoot,
+            ResolveRepositoryOptionPath(repositoryRoot, options, "--config", ".config/arena.local.yaml"),
+            cancellationToken);
+        if (!configurationResult.Succeeded || configurationResult.Configuration is null)
+        {
+            foreach (ConfigurationValidationError error in configurationResult.Errors)
+            {
+                Console.Error.WriteLine($"{error.Code}: {SecretRedactor.Redact(error.Message)}");
+            }
+
+            return 2;
+        }
+
+        if (!TryGetBoundedSeconds(options, "--startup-timeout-seconds", 60, 5, 300, out int startupTimeoutSeconds) ||
+            !TryGetBoundedSeconds(options, "--request-timeout-seconds", 20, 8, 60, out int requestTimeoutSeconds) ||
+            !TryGetBoundedSeconds(options, "--shutdown-timeout-seconds", 15, 2, 120, out int shutdownTimeoutSeconds))
+        {
+            return WriteUsageError("road-budget-smoke timeouts must be whole seconds within the documented bridge bounds.");
+        }
+
+        Phase03BridgeService service = new(
+            new RunDirectoryAllocator(),
+            new SystemArenaProcessFactory(),
+            new CliOpenTtdConsoleBridge(),
+            new TcpLoopbackReadinessProbe(),
+            new WindowsCredentialStore());
+        Phase03BridgeSmokeResult result = await service.RunAsync(
+            configurationResult.Configuration,
+            new Phase03BridgeSmokeOptions(
+                TimeSpan.FromSeconds(startupTimeoutSeconds),
+                TimeSpan.FromSeconds(requestTimeoutSeconds),
+                TimeSpan.FromSeconds(shutdownTimeoutSeconds)),
+            new Phase06BudgetBoundaryBridgeExtension(),
+            cancellationToken);
+
+        if (options.Flags.Contains("--json"))
+        {
+            Console.WriteLine(JsonSerializer.Serialize(result, DoctorJsonOptions));
+        }
+        else
+        {
+            string runDirectory = Path.Combine(configurationResult.Configuration.Runtime.Runs, result.RunId);
+            Console.WriteLine($"Phase 06 road budget smoke {(result.Succeeded ? "completed" : "failed")}.");
+            Console.WriteLine($"  run: {runDirectory}");
+            Console.WriteLine($"  result: {Path.Combine(runDirectory, "bridge-result.json")}");
+            if (result.ErrorCode is not null)
+            {
+                Console.WriteLine($"  error: {result.ErrorCode}");
+            }
+        }
+
+        return result.Succeeded
+            ? 0
+            : string.Equals(result.ErrorCode, ArenaErrorCodes.RunCancelled, StringComparison.Ordinal) ? 130 : 2;
+    }
+
+    private static async Task<int> RunProviderRoadSmokeAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (!TryParseOptions(
+                arguments,
+                ["--config", "--providers-config", "--startup-timeout-seconds", "--request-timeout-seconds", "--shutdown-timeout-seconds", "--json"],
+                out CliOptions options) ||
+            options.Positionals.Count != 1)
+        {
+            return WriteUsageError("Usage: ttd-arena provider-road-smoke <provider-id> [--config <path>] [--providers-config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+        }
+
+        string providerId = options.Positionals[0];
+        ArenaConfigurationLoadResult arenaConfiguration = await ArenaConfigurationLoader.LoadArenaAsync(
+            repositoryRoot,
+            ResolveRepositoryOptionPath(repositoryRoot, options, "--config", ".config/arena.local.yaml"),
+            cancellationToken);
+        if (!arenaConfiguration.Succeeded || arenaConfiguration.Configuration is null)
+        {
+            foreach (ConfigurationValidationError error in arenaConfiguration.Errors)
+            {
+                Console.Error.WriteLine($"{error.Code}: {SecretRedactor.Redact(error.Message)}");
+            }
+
+            return 2;
+        }
+
+        ProviderConfigurationLoadResult providersConfiguration = await ArenaConfigurationLoader.LoadProvidersAsync(
+            repositoryRoot,
+            ResolveRepositoryOptionPath(repositoryRoot, options, "--providers-config", ".config/providers.local.yaml"),
+            cancellationToken);
+        if (!providersConfiguration.Succeeded || providersConfiguration.Configuration is null)
+        {
+            Console.Error.WriteLine("Provider configuration is invalid. Run doctor --verbose for redacted remediation.");
+            return 2;
+        }
+
+        if (!providersConfiguration.Configuration.Providers.TryGetValue(providerId, out ProviderLocalConfiguration? providerConfiguration) ||
+            !string.Equals(providerConfiguration.Type, "deepseek", StringComparison.Ordinal) ||
+            providerConfiguration.CredentialReference is null ||
+            string.IsNullOrWhiteSpace(providerConfiguration.Model))
+        {
+            Console.Error.WriteLine("provider-road-smoke requires a configured DeepSeek provider with model and credential_ref metadata.");
+            return 2;
+        }
+
+        if (!TryGetBoundedSeconds(options, "--startup-timeout-seconds", 60, 5, 300, out int startupTimeoutSeconds) ||
+            !TryGetBoundedSeconds(options, "--request-timeout-seconds", 60, 8, 60, out int requestTimeoutSeconds) ||
+            !TryGetBoundedSeconds(options, "--shutdown-timeout-seconds", 15, 2, 120, out int shutdownTimeoutSeconds))
+        {
+            return WriteUsageError("provider-road-smoke timeouts must be whole seconds within the documented bridge bounds.");
+        }
+
+        WindowsCredentialStore credentialStore = new();
+        CredentialReadResult credential = await credentialStore.ReadAsync(providerConfiguration.CredentialReference, cancellationToken);
+        try
+        {
+            if (!credential.Succeeded || credential.Secret is null)
+            {
+                Console.Error.WriteLine($"{credential.ErrorCode}: {SecretRedactor.Redact(credential.UserMessage)}");
+                return 2;
+            }
+        }
+        finally
+        {
+            credential.Secret?.Dispose();
+        }
+
+        using HttpClient httpClient = new();
+        ProviderCreationResult providerCreation = new ModelProviderFactory(credentialStore, httpClient).Create(providerConfiguration);
+        if (!providerCreation.Succeeded || providerCreation.Provider is null)
+        {
+            WriteError(providerCreation.Error);
+            return 2;
+        }
+
+        Phase03BridgeService service = new(
+            new RunDirectoryAllocator(),
+            new SystemArenaProcessFactory(),
+            new CliOpenTtdConsoleBridge(),
+            new TcpLoopbackReadinessProbe(),
+            credentialStore);
+        Phase03BridgeSmokeResult result = await service.RunAsync(
+            arenaConfiguration.Configuration,
+            new Phase03BridgeSmokeOptions(
+                TimeSpan.FromSeconds(startupTimeoutSeconds),
+                TimeSpan.FromSeconds(requestTimeoutSeconds),
+                TimeSpan.FromSeconds(shutdownTimeoutSeconds)),
+            new Phase06LiveProviderRoadBridgeExtension(providerCreation.Provider, providerConfiguration.Model),
+            cancellationToken);
+
+        if (options.Flags.Contains("--json"))
+        {
+            Console.WriteLine(JsonSerializer.Serialize(result, DoctorJsonOptions));
+        }
+        else
+        {
+            string runDirectory = Path.Combine(arenaConfiguration.Configuration.Runtime.Runs, result.RunId);
+            Console.WriteLine($"Phase 05/06 provider road smoke {(result.Succeeded ? "completed" : "failed")}.");
+            Console.WriteLine($"  run: {runDirectory}");
+            Console.WriteLine($"  result: {Path.Combine(runDirectory, "bridge-result.json")}");
+            Console.WriteLine($"  decisions: {Path.Combine(runDirectory, ObservationArtifactWriter.DecisionsFileName)}");
+            Console.WriteLine($"  actions: {Path.Combine(runDirectory, ObservationArtifactWriter.ActionsFileName)}");
+            Console.WriteLine($"  provider usage: {Path.Combine(runDirectory, ObservationArtifactWriter.ProviderUsageFileName)}");
+            if (result.ErrorCode is not null)
+            {
+                Console.WriteLine($"  error: {result.ErrorCode}");
+            }
+        }
+
+        return result.Succeeded
+            ? 0
+            : string.Equals(result.ErrorCode, ArenaErrorCodes.RunCancelled, StringComparison.Ordinal) ? 130 : 2;
+    }
+
+    private static async Task<int> RunRoadSmokeCoreAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        bool verifyFleetExpansion,
+        string commandName,
+        string displayName,
+        CancellationToken cancellationToken)
+    {
+        if (!TryParseOptions(
+                arguments,
+                ["--config", "--startup-timeout-seconds", "--request-timeout-seconds", "--shutdown-timeout-seconds", "--json"],
+                out CliOptions options))
+        {
+            return WriteUsageError(options.ErrorMessage);
+        }
+
+        if (options.Positionals.Count > 0)
+        {
+            return WriteUsageError(commandName + " does not accept positional arguments.");
+        }
+
+        ArenaConfigurationLoadResult configurationResult = await ArenaConfigurationLoader.LoadArenaAsync(
+            repositoryRoot,
+            ResolveRepositoryOptionPath(repositoryRoot, options, "--config", ".config/arena.local.yaml"),
+            cancellationToken);
+        if (!configurationResult.Succeeded || configurationResult.Configuration is null)
+        {
+            foreach (ConfigurationValidationError error in configurationResult.Errors)
+            {
+                Console.Error.WriteLine($"{error.Code}: {SecretRedactor.Redact(error.Message)}");
+            }
+
+            return 2;
+        }
+
+        if (!TryGetBoundedSeconds(options, "--startup-timeout-seconds", 60, 5, 300, out int startupTimeoutSeconds) ||
+            !TryGetBoundedSeconds(options, "--request-timeout-seconds", 20, 8, 60, out int requestTimeoutSeconds) ||
+            !TryGetBoundedSeconds(options, "--shutdown-timeout-seconds", 15, 2, 120, out int shutdownTimeoutSeconds))
+        {
+            return WriteUsageError(commandName + " timeouts must be whole seconds within the documented bridge bounds.");
+        }
+
+        Phase03BridgeService service = new(
+            new RunDirectoryAllocator(),
+            new SystemArenaProcessFactory(),
+            new CliOpenTtdConsoleBridge(),
+            new TcpLoopbackReadinessProbe(),
+            new WindowsCredentialStore());
+        Phase03BridgeSmokeResult result = await service.RunAsync(
+            configurationResult.Configuration,
+            new Phase03BridgeSmokeOptions(
+                TimeSpan.FromSeconds(startupTimeoutSeconds),
+                TimeSpan.FromSeconds(requestTimeoutSeconds),
+                TimeSpan.FromSeconds(shutdownTimeoutSeconds)),
+            new Phase06ReplayRoadBridgeExtension(verifyFleetExpansion),
+            cancellationToken);
+
+        if (options.Flags.Contains("--json"))
+        {
+            Console.WriteLine(JsonSerializer.Serialize(result, DoctorJsonOptions));
+        }
+        else
+        {
+            string runDirectory = Path.Combine(configurationResult.Configuration.Runtime.Runs, result.RunId);
+            Console.WriteLine($"{displayName} {(result.Succeeded ? "completed" : "failed")}.");
+            Console.WriteLine($"  run: {runDirectory}");
+            Console.WriteLine($"  result: {Path.Combine(runDirectory, "bridge-result.json")}");
+            Console.WriteLine($"  decisions: {Path.Combine(runDirectory, ObservationArtifactWriter.DecisionsFileName)}");
+            Console.WriteLine($"  actions: {Path.Combine(runDirectory, ObservationArtifactWriter.ActionsFileName)}");
+            Console.WriteLine($"  provider usage: {Path.Combine(runDirectory, ObservationArtifactWriter.ProviderUsageFileName)}");
+            if (result.ErrorCode is not null)
+            {
+                Console.WriteLine($"  error: {result.ErrorCode}");
+            }
+        }
+
+        return result.Succeeded
+            ? 0
+            : string.Equals(result.ErrorCode, ArenaErrorCodes.RunCancelled, StringComparison.Ordinal) ? 130 : 2;
+    }
+
     private static async Task<int> SetCredentialAsync(
         IReadOnlyList<string> arguments,
         CancellationToken cancellationToken)
@@ -432,7 +969,7 @@ public static class ArenaCommandLine
 
         return await TestCredentialReferenceAsync(
             provider.CredentialReference,
-            $"Credential metadata for provider '{targetOrProviderId}' resolves. Remote provider calls begin in Phase 05.",
+            $"Credential metadata for provider '{targetOrProviderId}' resolves. Use `providers test` to validate its adapter configuration without a remote request.",
             cancellationToken);
     }
 
@@ -457,6 +994,118 @@ public static class ArenaCommandLine
         {
             result.Secret?.Dispose();
         }
+    }
+
+    private static async Task<int> ListProvidersAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (!TryParseOptions(arguments, ["--providers-config"], out CliOptions options) || options.Positionals.Count != 0)
+        {
+            return WriteUsageError("Usage: ttd-arena providers list [--providers-config <path>]");
+        }
+
+        ProviderConfigurationLoadResult providers = await LoadProviderConfigurationAsync(repositoryRoot, options, cancellationToken);
+        if (!providers.Succeeded || providers.Configuration is null)
+        {
+            return 2;
+        }
+
+        Console.WriteLine("replay: built-in; adapter=1.0; credential=not-required");
+        foreach (ProviderLocalConfiguration provider in providers.Configuration.Providers.Values.OrderBy(provider => provider.Id, StringComparer.Ordinal))
+        {
+            string model = string.IsNullOrWhiteSpace(provider.Model) ? "not-configured" : "configured";
+            string credential = provider.CredentialReference is null ? "not-configured" : "configured";
+            string adapter = string.Equals(provider.Type, "deepseek", StringComparison.Ordinal) ? "supported" : "unsupported";
+            Console.WriteLine($"{provider.Id}: type={provider.Type}; adapter={adapter}; model={model}; credential={credential}");
+        }
+
+        if (providers.Configuration.Providers.Count == 0)
+        {
+            Console.WriteLine("No local remote-provider configurations were found.");
+        }
+
+        return 0;
+    }
+
+    private static async Task<int> TestProviderAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (!TryParseOptions(arguments, ["--providers-config"], out CliOptions options) || options.Positionals.Count != 1)
+        {
+            return WriteUsageError("Usage: ttd-arena providers test <provider-id> [--providers-config <path>]");
+        }
+
+        string providerId = options.Positionals[0];
+        if (string.Equals(providerId, "replay", StringComparison.Ordinal))
+        {
+            Console.WriteLine("The built-in replay provider is available; no credential or remote request is required.");
+            return 0;
+        }
+
+        ProviderConfigurationLoadResult providers = await LoadProviderConfigurationAsync(repositoryRoot, options, cancellationToken);
+        if (!providers.Succeeded || providers.Configuration is null)
+        {
+            return 2;
+        }
+
+        if (!providers.Configuration.Providers.TryGetValue(providerId, out ProviderLocalConfiguration? provider))
+        {
+            Console.Error.WriteLine("The requested provider is not present in providers.local.yaml.");
+            return 2;
+        }
+
+        WindowsCredentialStore credentialStore = new();
+        using HttpClient client = new();
+        ProviderCreationResult creation = new ModelProviderFactory(credentialStore, client).Create(provider);
+        if (!creation.Succeeded)
+        {
+            WriteError(creation.Error);
+            return 2;
+        }
+
+        if (provider.CredentialReference is null)
+        {
+            Console.Error.WriteLine("The requested provider has no credential_ref in providers.local.yaml.");
+            return 2;
+        }
+
+        CredentialReadResult credential = await credentialStore.ReadAsync(provider.CredentialReference, cancellationToken);
+        try
+        {
+            if (!credential.Succeeded || credential.Secret is null)
+            {
+                Console.Error.WriteLine($"{credential.ErrorCode}: {SecretRedactor.Redact(credential.UserMessage)}");
+                return 2;
+            }
+
+            Console.WriteLine($"Provider '{providerId}' configuration and credential reference resolve. No remote provider request was made.");
+            return 0;
+        }
+        finally
+        {
+            credential.Secret?.Dispose();
+        }
+    }
+
+    private static async Task<ProviderConfigurationLoadResult> LoadProviderConfigurationAsync(
+        string repositoryRoot,
+        CliOptions options,
+        CancellationToken cancellationToken)
+    {
+        ProviderConfigurationLoadResult providers = await ArenaConfigurationLoader.LoadProvidersAsync(
+            repositoryRoot,
+            ResolveRepositoryOptionPath(repositoryRoot, options, "--providers-config", ".config/providers.local.yaml"),
+            cancellationToken);
+        if (!providers.Succeeded || providers.Configuration is null)
+        {
+            Console.Error.WriteLine("Provider configuration is invalid. Run doctor --verbose for redacted remediation.");
+        }
+
+        return providers;
     }
 
     private static DoctorService CreateDoctorService() =>
@@ -707,11 +1356,20 @@ public static class ArenaCommandLine
 
     private static void WriteHelp()
     {
-        Console.WriteLine("OpenTTD Model Arena Phase 03 commands:");
+        Console.WriteLine("OpenTTD Model Arena Phase 04-06 commands:");
         Console.WriteLine("  ttd-arena bootstrap [--config <path>] [--providers-config <path>] [--openttd-source <directory>]");
         Console.WriteLine("  ttd-arena doctor [--config <path>] [--providers-config <path>] [--json] [--verbose]");
         Console.WriteLine("  ttd-arena smoke [--config <path>] [--duration-seconds <0-300>] [--startup-timeout-seconds <5-300>] [--shutdown-timeout-seconds <2-120>] [--json]");
         Console.WriteLine("  ttd-arena bridge-smoke [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+        Console.WriteLine("  ttd-arena observation-smoke [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+        Console.WriteLine("  ttd-arena road-smoke [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+        Console.WriteLine("  ttd-arena fleet-smoke [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+        Console.WriteLine("  ttd-arena road-save-load-smoke --stage <proposed|validating|surveying|building_infrastructure|buying_vehicles|configuring_orders|verifying> [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+        Console.WriteLine("  ttd-arena road-budget-smoke [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+        Console.WriteLine("  ttd-arena provider-road-smoke <provider-id> [--config <path>] [--providers-config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+        Console.WriteLine("  ttd-arena observations replay <run-directory|observations.ndjson> [--json]");
+        Console.WriteLine("  ttd-arena providers list [--providers-config <path>]");
+        Console.WriteLine("  ttd-arena providers test <provider-id> [--providers-config <path>]");
         Console.WriteLine("  ttd-arena credentials set OpenTTDModelArena/<name>");
         Console.WriteLine("  ttd-arena credentials test <provider-id|OpenTTDModelArena/name> [--providers-config <path>]");
         Console.WriteLine("  ttd-arena credentials list");

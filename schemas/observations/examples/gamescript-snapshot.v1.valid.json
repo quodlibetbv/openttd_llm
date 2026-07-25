@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "game_date": "1950-01-01",
+  "paused": true,
+  "game_tick": 74,
+  "company": {
+    "company_id": 1,
+    "name": "Arena Company",
+    "cash": 100000,
+    "loan": 0,
+    "quarterly_income": 0,
+    "quarterly_expenses": 0,
+    "company_value": 100000,
+    "performance_rating": 0
+  },
+  "towns": [
+    { "town_id": 2, "name": "Alpha", "population": 1300, "location": { "x": 20, "y": 21 } }
+  ],
+  "industries": [],
+  "stations": [],
+  "vehicles": [],
+  "routes": [],
+  "projects": [],
+  "events": [
+    {
+      "event_id": "event-0001",
+      "event_code": "ARENA-OBSERVATION-READY",
+      "game_date": "1950-01-01",
+      "entity_ids": ["company-1"],
+      "public_summary": "Authoritative snapshot is ready."
+    }
+  ]
+}

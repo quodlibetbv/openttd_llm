@@ -14,6 +14,7 @@ public static class ArenaRuntimeLayout
     public const string GameDirectoryName = "game";
     public const string AiDirectoryName = "ai";
     public const string ArenaGameScriptName = "ArenaGS";
+    public const string ArenaGameScriptApiVersion = "14";
     public const string ModelProxyAiName = "ModelProxyAI";
     public const string ObsDirectoryName = "obs";
     public const string RunsDirectoryName = "runs";
@@ -544,7 +545,7 @@ public static class RuntimeLayoutInspector
             ArenaRuntimeLayout.ArenaGameScriptName,
             "RegisterGS",
             "ARGS",
-            "1.2",
+            ArenaRuntimeLayout.ArenaGameScriptApiVersion,
             missingOrInvalid);
         InspectPackage(
             openttdRoot,

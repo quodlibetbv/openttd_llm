@@ -1,4 +1,5 @@
 using OpenTtd.ModelArena.Contracts;
+using System.Text.Json;
 
 namespace OpenTtd.ModelArena.Providers;
 
@@ -38,8 +39,9 @@ public sealed class ReplayModelProvider : IModelProvider
         }
 
         ReplayStep step = _fixture.Steps[index];
+        string replayHash = request.ReplayObservationHash ?? request.ObservationHash;
         if (!string.Equals(
-                request.ObservationHash,
+                replayHash,
                 step.ExpectedObservationSha256,
                 StringComparison.OrdinalIgnoreCase))
         {
@@ -52,6 +54,18 @@ public sealed class ReplayModelProvider : IModelProvider
                 EmptyUsage()));
         }
 
+        JsonElement decisionJson = JsonSerializer.SerializeToElement(step.Decision, ObservationJsonContext.Default.ModelDecision);
+        ModelDecisionValidationResult validation = ModelDecisionValidator.ParseAndValidate(
+            decisionJson,
+            request.AvailableTools.ToHashSet(StringComparer.Ordinal),
+            request.MaximumActions);
+        if (!validation.IsValid || validation.Decision is null)
+        {
+            return Task.FromResult(ProviderDecisionResult.Failed(
+                validation.Error!,
+                EmptyUsage()));
+        }
+
         ProviderUsage usage = new(
             step.Usage.InputTokens,
             step.Usage.OutputTokens,
@@ -59,13 +73,8 @@ public sealed class ReplayModelProvider : IModelProvider
             ProviderRequestId: null,
             EstimatedCost: null);
 
-        return Task.FromResult(ProviderDecisionResult.Succeeded(step.Decision, usage));
+        return Task.FromResult(ProviderDecisionResult.Succeeded(validation.Decision, usage));
     }
 
-    private static ProviderUsage EmptyUsage() => new(
-        InputTokens: 0,
-        OutputTokens: 0,
-        Latency: TimeSpan.Zero,
-        ProviderRequestId: null,
-        EstimatedCost: null);
+    private static ProviderUsage EmptyUsage() => ProviderUsage.Empty;
 }

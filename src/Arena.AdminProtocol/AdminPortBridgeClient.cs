@@ -620,7 +620,7 @@ public sealed class AdminPortBridgeClient : IAdminPortTransport, IAsyncDisposabl
             RecordDiagnostic("matched-error");
             pending.Complete(AdminPortRequestResult.Failure(
                 ReadErrorCode(envelope.Payload) ?? ArenaErrorCodes.ProtocolInvalidMessage,
-                "ArenaGS rejected the correlated protocol request."));
+                ReadSafeErrorMessage(envelope.Payload) ?? "ArenaGS rejected the correlated protocol request."));
             return Task.CompletedTask;
         }
 
@@ -1075,6 +1075,25 @@ public sealed class AdminPortBridgeClient : IAdminPortTransport, IAsyncDisposabl
         errorCode.ValueKind == JsonValueKind.String
             ? errorCode.GetString()
             : null;
+
+    // ArenaGS error text is part of the trusted, versioned local protocol. Do
+    // not surface arbitrary payloads: retain only a small printable diagnostic
+    // so a deterministic game-side failure remains actionable without ever
+    // carrying credentials or provider bodies into run results.
+    private static string? ReadSafeErrorMessage(JsonElement payload)
+    {
+        if (payload.ValueKind != JsonValueKind.Object ||
+            !payload.TryGetProperty("message", out JsonElement message) ||
+            message.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        string? value = message.GetString();
+        return value is { Length: > 0 and <= 500 } && value.All(character => !char.IsControl(character))
+            ? value
+            : null;
+    }
 
     private sealed class SecureHandshakeNotSupportedException : IOException
     {

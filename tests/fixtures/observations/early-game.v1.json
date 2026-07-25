@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "run_id": "fixture-early-game",
+  "game_date": "1950-01-01",
+  "sections": {
+    "run_context": { "scenario_id": "road-profit", "scenario_version": "1.0.0", "benchmark_company_id": 1, "currency": "game_money" },
+    "goal_context": { "goal_id": "road-profit", "goal_version": "1.0.0", "title": "Start a passenger network", "objective": "Create a viable passenger route without consuming the cash reserve.", "allowed_tools": ["inspect_company", "list_opportunities", "build_transport_route", "wait"], "ranking_rule": "population_then_distance" },
+    "game_clock": { "game_date": "1950-01-01", "game_tick": 74, "paused": true },
+    "company_summary": { "company_id": 1, "name": "Fixture Transit", "vehicle_count": 0, "station_count": 0, "route_count": 0 },
+    "financial_summary": { "currency": "game_money", "cash": 100000, "loan": 0, "quarterly_income": 0, "quarterly_expenses": 0, "quarterly_profit": 0, "company_value": 100000, "performance_rating": 0 },
+    "network_summary": { "stations": [], "vehicles": [], "routes": [] },
+    "active_projects": [],
+    "constraints_and_budgets": { "minimum_cash_reserve": 10000, "per_project_budget": 90000, "available_project_budget": 90000 },
+    "candidate_opportunities": {
+      "towns": [
+        { "town_id": 2, "name": "Alpha", "population": 1300, "location": { "x": 20, "y": 21 } },
+        { "town_id": 3, "name": "Bravo", "population": 1100, "location": { "x": 42, "y": 21 } }
+      ],
+      "industries": [],
+      "opportunities": [
+        { "opportunity_id": "opportunity-2-3-passengers", "kind": "town_pair", "source_town_id": 2, "source_town_name": "Alpha", "destination_town_id": 3, "destination_town_name": "Bravo", "cargo": "passengers", "distance_tiles": 22, "ranking_score": 2378 }
+      ]
+    },
+    "recent_events": [ { "event_id": "event-early-1", "event_code": "ARENA-OBSERVATION-READY", "game_date": "1950-01-01", "entity_ids": ["company-1"], "public_summary": "The new company is ready to select its first route." } ],
+    "prior_decision_results": [],
+    "remaining_model_budget": { "remaining_calls": 5, "remaining_output_tokens": 700, "remaining_retries": 1 }
+  }
+}

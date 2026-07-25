@@ -4,7 +4,7 @@ OpenTTD Model Arena is a Windows-first, hands-off benchmark and video-production
 
 ## Current status
 
-Phases 00–03 are complete. Alongside the idempotent Windows bootstrap, structured `doctor` command, and provider-free Phase 02 lifecycle smoke, the repository can run an authenticated, versioned AdminPort bridge smoke against a real isolated OpenTTD server. OpenTTD 15+ uses its native secure AdminPort login; a narrowly version-gated compatibility path supports OpenTTD 14.x. ArenaGS validates a closed envelope, run binding, idempotency, heartbeats, bounded chunking, and typed control results. Rich observations, provider calls, route construction, recording, and scoring remain later phases.
+Phases 00–03 are complete. The Phase 04–06 command surface now adds canonical authoritative observations, replayable model decisions, a provider-neutral DeepSeek adapter, and deterministic road-route execution over the authenticated AdminPort bridge. The provider-free replay checks can be run on a prepared Windows host. The final live-provider acceptance proof is deliberately separate: it requires a user-configured Credential Manager reference and an explicit DeepSeek network request. Recording, scoring, and benchmark scenarios remain later phases.
 
 ## Document map
 
@@ -17,6 +17,7 @@ Phases 00–03 are complete. Alongside the idempotent Windows bootstrap, structu
 | [docs/architecture.md](docs/architecture.md) | Phase 03 process, protocol, artifact, and authority boundaries. |
 | [docs/phase-02-acceptance.md](docs/phase-02-acceptance.md) | Phase 02 requirement-to-evidence map and Windows verification procedure. |
 | [docs/phase-03-acceptance.md](docs/phase-03-acceptance.md) | Phase 03 requirement-to-evidence map, migration, and Windows bridge verification. |
+| [docs/phase-04-06-verification.md](docs/phase-04-06-verification.md) | Phase 04–06 command guide, artifacts, replay/road checks, and safe DeepSeek verification. |
 | [docs/adr/](docs/adr/README.md) | Accepted architecture and compatibility decisions. |
 | [phases/PHASE-00-FOUNDATION.md](phases/PHASE-00-FOUNDATION.md) | Product decisions, repository skeleton, and engineering baseline. |
 | [phases/PHASE-01-SETUP-AND-DOCTOR.md](phases/PHASE-01-SETUP-AND-DOCTOR.md) | Repeatable Windows setup and environment diagnostics. |
@@ -58,7 +59,7 @@ ttd-arena tournament `
 
 The product is complete when a clean Windows machine can install the prerequisites, pass `ttd-arena doctor`, execute a full unattended tournament, recover from individual run failures, and produce synchronized videos, decision logs, final savegames, immutable manifests, and statistically comparable scores without manual interaction.
 
-## Phase 03 quality gate
+## Phase 04–06 source-quality gate
 
 On a machine with the .NET 8 SDK and Node.js 20 or later:
 
@@ -73,4 +74,4 @@ npm test --prefix src/Arena.Overlay
 npm run build --prefix src/Arena.Overlay
 ```
 
-`pwsh ./scripts/test-all.ps1` runs the same source-quality gate on the supported Windows host. See [SETUP.md](SETUP.md) for bootstrap, Credential Manager, OBS/doctor setup, the live provider-free lifecycle smoke, and authenticated Phase 03 bridge verification. The source-quality gate does not itself launch OpenTTD.
+`pwsh ./scripts/test-all.ps1` runs the same source-quality gate on the supported Windows host. See [SETUP.md](SETUP.md) and [Phase 04–06 verification](docs/phase-04-06-verification.md) for bootstrap, Credential Manager, replay, road, and live-provider verification. The source-quality gate does not itself launch OpenTTD or call a paid provider.

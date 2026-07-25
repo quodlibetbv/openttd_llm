@@ -11,7 +11,7 @@ namespace OpenTtd.ModelArena.Cli;
 /// <summary>
 /// Runs as a short-lived child process because a process can attach to only one
 /// Windows console at a time. It controls the dedicated OpenTTD console, never
-/// a gameplay window, and accepts only the four fixed Phase 02 operations.
+/// a gameplay window, and accepts only fixed supervisor operations.
 /// </summary>
 internal static class WindowsDedicatedConsoleBridge
 {
@@ -175,6 +175,7 @@ internal static class WindowsDedicatedConsoleBridge
             "unpause" when !options.ContainsKey("--save-name") => OpenTtdConsoleCommand.Unpause,
             "quit" when !options.ContainsKey("--save-name") => OpenTtdConsoleCommand.Quit,
             "save" when TryGetSingle(options, "--save-name", out string? saveName) => TryCreateSave(saveName),
+            "load" when TryGetSingle(options, "--save-name", out string? saveName) => TryCreateLoad(saveName),
             _ => null,
         };
         return command is not null;
@@ -185,6 +186,18 @@ internal static class WindowsDedicatedConsoleBridge
         try
         {
             return saveName is null ? null : OpenTtdConsoleCommand.Save(saveName);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static OpenTtdConsoleCommand? TryCreateLoad(string? saveName)
+    {
+        try
+        {
+            return saveName is null ? null : OpenTtdConsoleCommand.Load(saveName);
         }
         catch (ArgumentException)
         {
@@ -272,6 +285,7 @@ internal static class WindowsDedicatedConsoleBridge
                 OpenTtdConsoleOperation.Unpause => "unpause",
                 OpenTtdConsoleOperation.Quit => "quit",
                 OpenTtdConsoleOperation.Save when command.SaveName is not null => "save " + command.SaveName,
+                OpenTtdConsoleOperation.Load when command.SaveName is not null => "load " + command.SaveName,
                 _ => throw new InvalidOperationException("The dedicated-console command is invalid."),
             };
             InputRecord[] records = new InputRecord[line.Length + 1];

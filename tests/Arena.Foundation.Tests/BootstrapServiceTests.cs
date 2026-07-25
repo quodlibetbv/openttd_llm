@@ -1,5 +1,6 @@
 using OpenTtd.ModelArena.Contracts;
 using OpenTtd.ModelArena.Orchestrator;
+using OpenTtd.ModelArena.Storage;
 using Xunit;
 
 namespace OpenTtd.ModelArena.Foundation.Tests;
@@ -22,7 +23,7 @@ public sealed class BootstrapServiceTests
             StringComparison.Ordinal));
         directory.WriteFile(".config/providers.local.yaml", "config_version: 1\nproviders: {}\n");
         directory.WriteFile("openttd/game/ArenaGS/main.nut", "class ArenaGS {}");
-        directory.WriteFile("openttd/game/ArenaGS/info.nut", "ArenaGS function GetShortName() { return \"ARGS\"; } function GetAPIVersion() { return \"1.2\"; } RegisterGS");
+        directory.WriteFile("openttd/game/ArenaGS/info.nut", $"ArenaGS function GetShortName() {{ return \"ARGS\"; }} function GetAPIVersion() {{ return \"{ArenaRuntimeLayout.ArenaGameScriptApiVersion}\"; }} RegisterGS");
         directory.WriteFile("openttd/ai/ModelProxyAI/main.nut", "class ModelProxyAI {}");
         directory.WriteFile("openttd/ai/ModelProxyAI/info.nut", "ModelProxyAI function GetShortName() { return \"MPAI\"; } function GetAPIVersion() { return \"1.0\"; } RegisterAI");
         string localConfigurationPath = Path.Combine(directory.Path, ".config", "arena.local.yaml");
@@ -62,7 +63,7 @@ public sealed class BootstrapServiceTests
         directory.WriteFile(".config/arena.example.yaml", ArenaConfigurationLoaderTests.ValidArenaConfiguration());
         directory.WriteFile(".config/providers.example.yaml", "config_version: 1\nproviders: {}\n");
         directory.WriteFile("openttd/game/ArenaGS/main.nut", "class ArenaGS {}");
-        directory.WriteFile("openttd/game/ArenaGS/info.nut", "ArenaGS function GetShortName() { return \"ARGS\"; } function GetAPIVersion() { return \"1.2\"; } RegisterGS");
+        directory.WriteFile("openttd/game/ArenaGS/info.nut", $"ArenaGS function GetShortName() {{ return \"ARGS\"; }} function GetAPIVersion() {{ return \"{ArenaRuntimeLayout.ArenaGameScriptApiVersion}\"; }} RegisterGS");
         directory.WriteFile("openttd/ai/ModelProxyAI/main.nut", "class ModelProxyAI {}");
         directory.WriteFile("openttd/ai/ModelProxyAI/info.nut", "ModelProxyAI function GetShortName() { return \"MPAI\"; } function GetAPIVersion() { return \"1.0\"; } RegisterAI");
         string outsideDirectory = directory.CreateDirectory("outside-config");

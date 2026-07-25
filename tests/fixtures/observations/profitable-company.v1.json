@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "run_id": "fixture-profitable-company",
+  "game_date": "1952-06-01",
+  "sections": {
+    "run_context": { "scenario_id": "road-profit", "scenario_version": "1.0.0", "benchmark_company_id": 1, "currency": "game_money" },
+    "goal_context": { "goal_id": "road-profit", "goal_version": "1.0.0", "title": "Grow a profitable passenger network", "objective": "Use surplus cash to add viable passenger routes.", "allowed_tools": ["inspect_company", "list_opportunities", "build_transport_route", "expand_route", "wait"], "ranking_rule": "population_then_distance" },
+    "game_clock": { "game_date": "1952-06-01", "game_tick": 890, "paused": true },
+    "company_summary": { "company_id": 1, "name": "Fixture Transit", "vehicle_count": 2, "station_count": 2, "route_count": 1 },
+    "financial_summary": { "currency": "game_money", "cash": 320000, "loan": 0, "quarterly_income": 68000, "quarterly_expenses": -21000, "quarterly_profit": 47000, "company_value": 455000, "performance_rating": 68 },
+    "network_summary": {
+      "stations": [
+        { "station_id": 11, "name": "Alpha Central", "location": { "x": 20, "y": 21 }, "vehicle_count": 1 },
+        { "station_id": 12, "name": "Bravo Central", "location": { "x": 42, "y": 21 }, "vehicle_count": 1 }
+      ],
+      "vehicles": [
+        { "vehicle_id": 101, "name": "Alpha Shuttle", "vehicle_type": "road", "state": "running", "profit_last_year": 31000, "location": { "x": 29, "y": 21 } },
+        { "vehicle_id": 102, "name": "Bravo Shuttle", "vehicle_type": "road", "state": "at_station", "profit_last_year": 29000, "location": { "x": 42, "y": 21 } }
+      ],
+      "routes": [ { "route_id": "route-alpha-bravo", "action_id": "action-alpha-bravo", "source_station_id": 11, "destination_station_id": 12, "cargo": "passengers", "vehicle_ids": [101, 102], "operational": true } ]
+    },
+    "active_projects": [],
+    "constraints_and_budgets": { "minimum_cash_reserve": 50000, "per_project_budget": 180000, "available_project_budget": 180000 },
+    "candidate_opportunities": { "towns": [ { "town_id": 4, "name": "Cedar", "population": 1700, "location": { "x": 54, "y": 25 } }, { "town_id": 5, "name": "Dover", "population": 1500, "location": { "x": 70, "y": 25 } } ], "industries": [], "opportunities": [ { "opportunity_id": "opportunity-4-5-passengers", "kind": "town_pair", "source_town_id": 4, "source_town_name": "Cedar", "destination_town_id": 5, "destination_town_name": "Dover", "cargo": "passengers", "distance_tiles": 16, "ranking_score": 3184 } ] },
+    "recent_events": [ { "event_id": "event-profit-1", "event_code": "ARENA-ROUTE-OPERATING", "game_date": "1952-06-01", "entity_ids": ["route-alpha-bravo"], "public_summary": "The existing passenger route is operating profitably." } ],
+    "prior_decision_results": [ { "decision_id": "decision-previous", "action_id": "action-alpha-bravo", "status": "completed", "message": "The first passenger route is operating within budget." } ],
+    "remaining_model_budget": { "remaining_calls": 4, "remaining_output_tokens": 650, "remaining_retries": 1 }
+  }
+}

@@ -4,40 +4,86 @@
   "game_date": "1950-01-01",
   "sections": {
     "run_context": {
-      "summary": "Replay foundation run with no provider network access."
+      "scenario_id": "road-smoke",
+      "scenario_version": "1.0.0",
+      "benchmark_company_id": 1,
+      "currency": "game_money"
     },
     "goal_context": {
-      "summary": "Validate stable observation and action contracts."
+      "goal_id": "road-profit",
+      "goal_version": "1.0.0",
+      "title": "Build a passenger route",
+      "objective": "Connect two suitable towns with a road passenger service.",
+      "allowed_tools": ["inspect_company", "list_opportunities", "build_transport_route", "wait"],
+      "ranking_rule": "population_then_distance"
     },
     "game_clock": {
-      "summary": "The game is paused on 1950-01-01."
+      "game_date": "1950-01-01",
+      "game_tick": 74,
+      "paused": true
     },
     "company_summary": {
-      "summary": "The benchmark company has no active assets."
+      "company_id": 1,
+      "name": "Arena Company",
+      "vehicle_count": 0,
+      "station_count": 0,
+      "route_count": 0
     },
     "financial_summary": {
-      "summary": "No financial metrics are available in the foundation fixture."
+      "currency": "game_money",
+      "cash": 100000,
+      "loan": 0,
+      "quarterly_income": 0,
+      "quarterly_expenses": 0,
+      "quarterly_profit": 0,
+      "company_value": 100000,
+      "performance_rating": 0
     },
     "network_summary": {
-      "summary": "No transport network exists yet."
+      "stations": [],
+      "vehicles": [],
+      "routes": []
     },
-    "active_projects": {
-      "summary": "No projects are active."
-    },
+    "active_projects": [],
     "constraints_and_budgets": {
-      "summary": "Only declared tools and budgets may be used."
+      "minimum_cash_reserve": 10000,
+      "per_project_budget": 90000,
+      "available_project_budget": 90000
     },
     "candidate_opportunities": {
-      "summary": "Opportunity ranking is introduced in Phase 04."
+      "towns": [
+        { "town_id": 2, "name": "Alpha", "population": 1300, "location": { "x": 20, "y": 21 } },
+        { "town_id": 3, "name": "Bravo", "population": 1100, "location": { "x": 42, "y": 21 } }
+      ],
+      "industries": [],
+      "opportunities": [
+        {
+          "opportunity_id": "opportunity-2-3-passengers",
+          "kind": "town_pair",
+          "source_town_id": 2,
+          "source_town_name": "Alpha",
+          "destination_town_id": 3,
+          "destination_town_name": "Bravo",
+          "cargo": "passengers",
+          "distance_tiles": 22,
+          "ranking_score": 2378
+        }
+      ]
     },
-    "recent_events": {
-      "summary": "The run was initialized."
-    },
-    "prior_decision_results": {
-      "summary": "No prior decision results exist."
-    },
+    "recent_events": [
+      {
+        "event_id": "event-0001",
+        "event_code": "ARENA-OBSERVATION-READY",
+        "game_date": "1950-01-01",
+        "entity_ids": ["company-1"],
+        "public_summary": "Authoritative snapshot is ready."
+      }
+    ],
+    "prior_decision_results": [],
     "remaining_model_budget": {
-      "summary": "The fixture permits one replayed decision."
+      "remaining_calls": 1,
+      "remaining_output_tokens": 500,
+      "remaining_retries": 1
     }
   }
 }

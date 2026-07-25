@@ -21,7 +21,15 @@ public sealed record ProviderUsage(
     long OutputTokens,
     TimeSpan Latency,
     string? ProviderRequestId,
-    decimal? EstimatedCost);
+    decimal? EstimatedCost)
+{
+    public static ProviderUsage Empty { get; } = new(
+        InputTokens: 0,
+        OutputTokens: 0,
+        Latency: TimeSpan.Zero,
+        ProviderRequestId: null,
+        EstimatedCost: null);
+}
 
 public sealed record ProviderDecisionResult
 {

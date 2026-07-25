@@ -1,0 +1,7 @@
+{
+  "schema_version": "1.0",
+  "run_id": "run-0001",
+  "from_observation_sha256": "not-a-hash",
+  "to_observation_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "operations": []
+}

@@ -1,3 +1,13 @@
 # Provider configuration contains references only. Store values with credentials set.
 config_version: 1
 providers: {}
+# Example live provider metadata. Keep the actual credential only in Windows
+# Credential Manager; this file intentionally contains no secret value.
+# providers:
+#   deepseek:
+#     type: deepseek
+#     base_url: https://api.deepseek.com/
+#     model: deepseek-chat
+#     credential_ref: credman:OpenTTDModelArena/DeepSeek
+#     timeout_seconds: 45
+#     maximum_transient_retries: 1

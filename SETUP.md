@@ -1,6 +1,6 @@
 # Windows Setup Guide
 
-> Status: Phases 01–03 are implemented. Setup provisions and diagnoses the repository-local runtime; Phase 02 launches the provider-free lifecycle smoke, and Phase 03 verifies an authenticated AdminPort/GameScript bridge. Rich observations, provider calls, route construction, recording, scoring, and benchmark scenarios remain later phases.
+> Status: Phases 01–06 provide setup, isolated lifecycle, authenticated bridge, observation/replay, provider, and road-executor verification commands. A real DeepSeek call is opt-in and requires a locally configured Credential Manager reference. Recording, scoring, and benchmark scenarios remain later phases.
 
 ## Supported host
 
@@ -128,8 +128,11 @@ A later live provider entry contains metadata plus `credential_ref`; it never co
 providers:
   deepseek:
     type: deepseek
-    base_url: https://api.deepseek.com
+    base_url: https://api.deepseek.com/
+    model: deepseek-chat
     credential_ref: credman:OpenTTDModelArena/DeepSeek
+    timeout_seconds: 45
+    maximum_transient_retries: 1
 ```
 
 ## Credentials
@@ -149,7 +152,7 @@ To check that a configured provider reference exists without issuing a paid prov
 pwsh ./scripts/ttd-arena.ps1 credentials test deepseek
 ```
 
-You can test a dedicated managed target directly, for example `credentials test OpenTTDModelArena/OBS`. `credentials test` verifies only Credential Manager metadata. Remote provider authentication is deliberately deferred to Phase 05.
+You can test a dedicated managed target directly, for example `credentials test OpenTTDModelArena/OBS`. `credentials test` verifies only Credential Manager metadata. `providers test deepseek` additionally validates the local adapter metadata and credential reference, but deliberately makes no remote provider request. The explicit Phase 05/06 provider road smoke is the only command in this guide that makes a DeepSeek request.
 
 `OpenTTDModelArena/AdminPort` is a separate OpenTTD-only credential. Enter it through the same hidden prompt; do not reuse OBS or a provider password. OpenTTD's generated `secrets.cfg` policy requires 1–31 printable ASCII characters with no spaces, `=`, `;`, or `#`. Bootstrap migrates a pre-Phase-03 local configuration by inserting the reference only; it never writes or reads the credential value.
 
@@ -343,6 +346,38 @@ Phase 03 bridge smoke completed.
 
 The bridge smoke has no spectator window, OBS scene switch, or recording by design. For visual validation, run the separate Phase 02 smoke and observe its three spectator windows. Inspect the latest `bridge-*` run with the commands in [Phase 03 acceptance evidence](docs/phase-03-acceptance.md).
 
+## Verify Phases 04–06
+
+After the Phase 03 bridge smoke passes, the provider-free checks exercise authoritative observations, replayed decisions, deterministic road construction, fleet expansion, recovery, and save/load at every road-project stage:
+
+```powershell
+pwsh ./scripts/ttd-arena.ps1 observation-smoke
+pwsh ./scripts/ttd-arena.ps1 road-smoke
+pwsh ./scripts/ttd-arena.ps1 fleet-smoke
+pwsh ./scripts/ttd-arena.ps1 road-budget-smoke
+
+$stages = 'proposed', 'validating', 'surveying', 'building_infrastructure',
+    'buying_vehicles', 'configuring_orders', 'verifying'
+foreach ($stage in $stages) {
+    pwsh ./scripts/ttd-arena.ps1 road-save-load-smoke --stage $stage
+    if ($LASTEXITCODE -ne 0) { throw "Save/load smoke failed at $stage." }
+}
+
+# Phase 06 repeatability gate: twenty isolated replay route runs.
+pwsh ./scripts/road-soak.ps1
+```
+
+Each command creates a new `bridge-*` run under `.runtime/runs/`; inspect `bridge-result.json`, `observations.ndjson`, `game-events.ndjson`, `decisions.ndjson`, `actions.ndjson`, and `provider-usage.ndjson` in that directory. To replay the latest recorded observation chain without launching OpenTTD:
+
+```powershell
+$run = Get-ChildItem .runtime/runs -Directory |
+    Sort-Object LastWriteTimeUtc -Descending |
+    Select-Object -First 1
+pwsh ./scripts/ttd-arena.ps1 observations replay $run.FullName
+```
+
+For the artifact expectations and the opt-in DeepSeek verification, see [Phase 04–06 verification](docs/phase-04-06-verification.md). The road smokes use a dedicated server and have no spectator or recording window; the Phase 02 smoke remains the available visual lifecycle check until recording and camera phases.
+
 ## Build and test
 
 Run the canonical repository quality gate on the supported Windows host:
@@ -351,7 +386,7 @@ Run the canonical repository quality gate on the supported Windows host:
 pwsh ./scripts/test-all.ps1
 ```
 
-It runs schema, formatting, architecture, secret, OpenTTD package, .NET unit, CLI version, and overlay test/build checks. CI additionally parses every setup PowerShell script on Windows. `test-all.ps1` does not start OpenTTD, connect to OBS, or call a provider; run the explicit Phase 02 and Phase 03 smokes above for live evidence.
+It runs schema, formatting, architecture, secret, OpenTTD package, .NET unit, CLI version, and overlay test/build checks. CI additionally parses every setup PowerShell script on Windows. `test-all.ps1` does not start OpenTTD, connect to OBS, or call a provider; run the explicit Phase 02–06 smokes above for live OpenTTD evidence.
 
 ## Cleanup
 
@@ -365,12 +400,10 @@ It removes only disposable build outputs, `.runtime/cache`, `.runtime/temp`, `.t
 
 ## Current boundary
 
-Phases 01–03 make a Windows host repeatable, diagnosable, capable of a provider-free isolated lifecycle smoke, and able to exchange authenticated versioned messages with ArenaGS. The following commands are not implemented yet and must not be treated as benchmark verification:
+Phases 01–06 make a Windows host repeatable, diagnosable, capable of provider-free isolated lifecycle/observation/road checks, and able to exchange authenticated versioned messages with ArenaGS. They also provide an opt-in live DeepSeek road proof using the same typed provider and action contracts. The following commands are not implemented yet and must not be treated as benchmark verification:
 
 - `ttd-arena run`
 - `ttd-arena verify-run`
-- detailed game observation or gameplay route execution
-- provider model requests
 - OBS scene switching or recording
 
 Those operations remain in their corresponding later phase documents.

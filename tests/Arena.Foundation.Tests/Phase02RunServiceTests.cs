@@ -233,7 +233,7 @@ public sealed class Phase02RunServiceTests
     private static async Task<ArenaLocalConfiguration> CreateConfigurationAsync(TemporaryDirectory directory)
     {
         directory.WriteFile("openttd/game/ArenaGS/main.nut", "class ArenaGS extends GSController { function Start() {} }");
-        directory.WriteFile("openttd/game/ArenaGS/info.nut", "class ArenaGSInfo extends GSInfo { function GetShortName() { return \"ARGS\"; } function GetAPIVersion() { return \"1.2\"; } } RegisterGS(ArenaGSInfo()); // ArenaGS");
+        directory.WriteFile("openttd/game/ArenaGS/info.nut", $"class ArenaGSInfo extends GSInfo {{ function GetShortName() {{ return \"ARGS\"; }} function GetAPIVersion() {{ return \"{ArenaRuntimeLayout.ArenaGameScriptApiVersion}\"; }} }} RegisterGS(ArenaGSInfo()); // ArenaGS");
         directory.WriteFile("openttd/ai/ModelProxyAI/main.nut", "class ModelProxyAI extends AIController { function Start() {} }");
         directory.WriteFile("openttd/ai/ModelProxyAI/info.nut", "class ModelProxyAIInfo extends AIInfo { function GetShortName() { return \"MPAI\"; } function GetAPIVersion() { return \"1.0\"; } } RegisterAI(ModelProxyAIInfo()); // ModelProxyAI");
         string runtimeRoot = directory.CreateDirectory(".runtime");
