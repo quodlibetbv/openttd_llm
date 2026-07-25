@@ -13,6 +13,9 @@ public sealed record BenchmarkInputHashes
     [JsonPropertyName("scenario_sha256")]
     public required string ScenarioSha256 { get; init; }
 
+    [JsonPropertyName("scenario_schema_sha256")]
+    public required string ScenarioSchemaSha256 { get; init; }
+
     [JsonPropertyName("game_settings_sha256")]
     public required string GameSettingsSha256 { get; init; }
 

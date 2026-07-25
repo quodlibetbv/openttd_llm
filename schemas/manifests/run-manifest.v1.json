@@ -12,15 +12,18 @@
     "git_commit",
     "provider",
     "model",
+    "scenario_id",
+    "scenario_version",
     "contract_versions",
-    "benchmark_input_hashes"
+    "benchmark_input_hashes",
+    "artifact_hashes"
   ],
   "properties": {
     "schema_version": { "const": "1.0" },
     "run_id": { "$ref": "#/$defs/identifier" },
     "created_utc": {
       "type": "string",
-      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,7})?(?:Z|[+-]00:00)$"
     },
     "application_version": {
       "type": "string",
@@ -28,7 +31,7 @@
     },
     "git_commit": {
       "type": "string",
-      "pattern": "^[0-9a-f]{7,64}$"
+      "pattern": "^[0-9a-f]{40,64}$"
     },
     "provider": {
       "type": "string",
@@ -41,8 +44,16 @@
       "minLength": 1,
       "maxLength": 160
     },
+    "scenario_id": { "$ref": "#/$defs/identifier" },
+    "scenario_version": { "$ref": "#/$defs/semantic_version" },
     "contract_versions": { "$ref": "#/$defs/contract_versions" },
-    "benchmark_input_hashes": { "$ref": "#/$defs/benchmark_input_hashes" }
+    "benchmark_input_hashes": { "$ref": "#/$defs/benchmark_input_hashes" },
+    "artifact_hashes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/artifact_hash" }
+    }
   },
   "$defs": {
     "identifier": {
@@ -58,6 +69,20 @@
     "version": {
       "type": "string",
       "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "semantic_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "artifact_hash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_path", "sha256", "byte_length"],
+      "properties": {
+        "relative_path": { "type": "string", "minLength": 1, "maxLength": 260, "pattern": "^(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+$" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "byte_length": { "type": "integer", "minimum": 0 }
+      }
     },
     "contract_versions": {
       "type": "object",
@@ -86,6 +111,7 @@
         "starting_save_sha256",
         "content_manifest_sha256",
         "scenario_sha256",
+        "scenario_schema_sha256",
         "game_settings_sha256",
         "prompt_template_sha256",
         "tool_contract_sha256",
@@ -100,6 +126,7 @@
         "starting_save_sha256": { "$ref": "#/$defs/sha256" },
         "content_manifest_sha256": { "$ref": "#/$defs/sha256" },
         "scenario_sha256": { "$ref": "#/$defs/sha256" },
+        "scenario_schema_sha256": { "$ref": "#/$defs/sha256" },
         "game_settings_sha256": { "$ref": "#/$defs/sha256" },
         "prompt_template_sha256": { "$ref": "#/$defs/sha256" },
         "tool_contract_sha256": { "$ref": "#/$defs/sha256" },

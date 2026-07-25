@@ -227,7 +227,7 @@
         "financial_summary": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["currency", "cash", "loan", "quarterly_income", "quarterly_expenses", "quarterly_profit", "company_value", "performance_rating"],
+          "required": ["currency", "cash", "loan", "quarterly_income", "quarterly_expenses", "quarterly_profit", "quarterly_cargo_delivered", "company_value", "performance_rating"],
           "properties": {
             "currency": { "type": "string", "const": "game_money" },
             "cash": { "type": "integer" },
@@ -235,6 +235,7 @@
             "quarterly_income": { "type": "integer" },
             "quarterly_expenses": { "type": "integer" },
             "quarterly_profit": { "type": "integer" },
+            "quarterly_cargo_delivered": { "type": "integer", "minimum": 0 },
             "company_value": { "type": "integer" },
             "performance_rating": { "type": "integer", "minimum": 0 }
           }

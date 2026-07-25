@@ -117,7 +117,7 @@ public static class RunManifestFinalizer
             !ProtocolEnvelopeValidator.IsIdentifier(draft.ScenarioId) ||
             !IsSemanticVersion(draft.ScenarioVersion) ||
             !IsSemanticVersion(draft.ApplicationVersion) ||
-            !IsSha256(draft.GitCommit) ||
+            !IsGitRevision(draft.GitCommit) ||
             string.IsNullOrWhiteSpace(draft.Provider) || draft.Provider.Length > 80 ||
             string.IsNullOrWhiteSpace(draft.Model) || draft.Model.Length > 160)
         {
@@ -135,6 +135,7 @@ public static class RunManifestFinalizer
             ("input/content-manifest.json", hashes.ContentManifestSha256),
             ("input/game-settings.cfg", hashes.GameSettingsSha256),
             ("input/scenario.yaml", hashes.ScenarioSha256),
+            ("input/schemas/scenario.v1.json", hashes.ScenarioSchemaSha256),
             ("input/prompt-template.txt", hashes.PromptTemplateSha256),
             ("input/tool-contracts.json", hashes.ToolContractSha256),
             ("input/schemas/observation.v1.json", hashes.ObservationSchemaSha256),
@@ -196,4 +197,7 @@ public static class RunManifestFinalizer
 
     private static bool IsSha256(string value) =>
         value.Length == 64 && value.All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f');
+
+    private static bool IsGitRevision(string value) =>
+        value.Length is >= 40 and <= 64 && value.All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f');
 }

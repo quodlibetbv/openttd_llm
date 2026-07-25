@@ -126,20 +126,7 @@ public sealed class ProviderDecisionExecutor
             await artifacts.AppendEventAsync(eventEntry, cancellationToken);
         }
 
-        ModelRequest request = new()
-        {
-            RunId = options.ObservationContext.RunId,
-            DecisionId = options.DecisionId,
-            ObservationHash = observation.Sha256,
-            ReplayObservationHash = observation.ReplaySha256,
-            Observation = observation.CanonicalJson,
-            AvailableTools = options.ObservationContext.AllowedTools.OrderBy(tool => tool, StringComparer.Ordinal).ToArray(),
-            RemainingModelCalls = options.ObservationContext.RemainingModelCalls,
-            RemainingOutputTokens = options.ObservationContext.RemainingOutputTokens,
-            MaximumActions = options.MaximumActions,
-            PromptTemplateVersion = ArenaPromptTemplate.Version,
-            PromptTemplateSha256 = ArenaPromptTemplate.Sha256,
-        };
+        ModelRequest request = ProviderRequestFactory.Create(observation, options);
         ProviderDecisionLoopResult providerResult = await ProviderDecisionLoop.GetDecisionAsync(
             provider,
             request,

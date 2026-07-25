@@ -7,7 +7,7 @@
     "goal_context": { "goal_id": "road-profit", "goal_version": "1.0.0", "title": "Start a passenger network", "objective": "Create a viable passenger route without consuming the cash reserve.", "allowed_tools": ["inspect_company", "list_opportunities", "build_transport_route", "wait"], "ranking_rule": "population_then_distance" },
     "game_clock": { "game_date": "1950-01-01", "game_tick": 74, "paused": true },
     "company_summary": { "company_id": 1, "name": "Fixture Transit", "vehicle_count": 0, "station_count": 0, "route_count": 0 },
-    "financial_summary": { "currency": "game_money", "cash": 100000, "loan": 0, "quarterly_income": 0, "quarterly_expenses": 0, "quarterly_profit": 0, "company_value": 100000, "performance_rating": 0 },
+    "financial_summary": { "currency": "game_money", "cash": 100000, "loan": 0, "quarterly_income": 0, "quarterly_expenses": 0, "quarterly_profit": 0, "quarterly_cargo_delivered": 0, "company_value": 100000, "performance_rating": 0 },
     "network_summary": { "stations": [], "vehicles": [], "routes": [] },
     "active_projects": [],
     "constraints_and_budgets": { "minimum_cash_reserve": 10000, "per_project_budget": 90000, "available_project_budget": 90000 },

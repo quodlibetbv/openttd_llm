@@ -103,6 +103,27 @@ public static class ScenarioPublicationRegistry
             : ScenarioPublicationResult.Failure("The published scenario content changed without a version change.");
     }
 
+    /// <summary>
+    /// Requires an exact immutable catalog entry before a scenario may be run
+    /// as a comparable benchmark. Validation alone intentionally permits an
+    /// unpublished draft so that it can be reviewed before publication.
+    /// </summary>
+    public static ScenarioPublicationResult RequirePublished(ScenarioDocument document, ScenarioPublicationCatalog catalog)
+    {
+        ScenarioPublicationResult validation = Validate(document, catalog);
+        if (!validation.Succeeded)
+        {
+            return validation;
+        }
+
+        return catalog.PublishedScenarios.Any(entry =>
+            string.Equals(entry.ScenarioId, document.Scenario.ScenarioId, StringComparison.Ordinal) &&
+            string.Equals(entry.Version, document.Scenario.Version, StringComparison.Ordinal) &&
+            string.Equals(entry.Sha256, document.Sha256, StringComparison.OrdinalIgnoreCase))
+            ? ScenarioPublicationResult.Success("The scenario is published with an exact immutable fingerprint.")
+            : ScenarioPublicationResult.Failure("A comparable benchmark run requires a published scenario identifier, version, and SHA-256 fingerprint.");
+    }
+
     public static async Task<ScenarioPublicationResult> PublishAsync(
         string repositoryRoot,
         string? catalogPath,

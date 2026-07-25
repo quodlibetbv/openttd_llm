@@ -7,7 +7,7 @@
     "goal_context": { "goal_id": "road-profit", "goal_version": "1.0.0", "title": "Stabilize the company", "objective": "Avoid unsafe construction while debt and operating costs are high.", "allowed_tools": ["inspect_company", "list_opportunities", "repay_loan", "take_loan", "wait"], "ranking_rule": "population_then_distance" },
     "game_clock": { "game_date": "1951-03-12", "game_tick": 445, "paused": true },
     "company_summary": { "company_id": 1, "name": "Fixture Transit", "vehicle_count": 1, "station_count": 2, "route_count": 1 },
-    "financial_summary": { "currency": "game_money", "cash": 28000, "loan": 240000, "quarterly_income": 18000, "quarterly_expenses": -36000, "quarterly_profit": -18000, "company_value": -72000, "performance_rating": 19 },
+    "financial_summary": { "currency": "game_money", "cash": 28000, "loan": 240000, "quarterly_income": 18000, "quarterly_expenses": -36000, "quarterly_profit": -18000, "quarterly_cargo_delivered": 83, "company_value": -72000, "performance_rating": 19 },
     "network_summary": { "stations": [ { "station_id": 21, "name": "Elm Stop", "location": { "x": 14, "y": 30 }, "vehicle_count": 1 }, { "station_id": 22, "name": "Fir Stop", "location": { "x": 30, "y": 30 }, "vehicle_count": 0 } ], "vehicles": [ { "vehicle_id": 201, "name": "Debt Shuttle", "vehicle_type": "road", "state": "running", "profit_last_year": -22000, "location": { "x": 20, "y": 30 } } ], "routes": [ { "route_id": "route-elm-fir", "action_id": "action-elm-fir", "source_station_id": 21, "destination_station_id": 22, "cargo": "passengers", "vehicle_ids": [201], "operational": true } ] },
     "active_projects": [],
     "constraints_and_budgets": { "minimum_cash_reserve": 30000, "per_project_budget": 90000, "available_project_budget": 0 },

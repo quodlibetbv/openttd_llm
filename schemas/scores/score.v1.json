@@ -7,17 +7,27 @@
   "required": [
     "schema_version",
     "run_id",
+    "scenario_id",
+    "scenario_version",
+    "formula_id",
+    "final_metrics_sha256",
     "total_score",
+    "total_penalty",
     "components"
   ],
   "properties": {
     "schema_version": { "const": "1.0" },
     "run_id": { "$ref": "#/$defs/identifier" },
+    "scenario_id": { "$ref": "#/$defs/identifier" },
+    "scenario_version": { "$ref": "#/$defs/semantic_version" },
+    "formula_id": { "const": "road-profit-v1" },
+    "final_metrics_sha256": { "$ref": "#/$defs/sha256" },
     "total_score": {
       "type": "number",
       "minimum": -1000000,
       "maximum": 1000000
     },
+    "total_penalty": { "type": "number", "minimum": 0, "maximum": 1000000 },
     "components": {
       "type": "array",
       "minItems": 1,
@@ -32,14 +42,30 @@
       "maxLength": 128,
       "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
     },
+    "semantic_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
     "component": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "key",
+        "metric",
+        "units",
         "value",
+        "baseline",
+        "cap",
+        "normalization",
+        "normalized_value",
         "weight",
-        "contribution"
+        "contribution",
+        "missing_data_behavior",
+        "penalty_interaction"
       ],
       "properties": {
         "key": {
@@ -48,9 +74,17 @@
           "maxLength": 80,
           "pattern": "^[a-z][a-z0-9_]*$"
         },
+        "metric": { "type": "string", "minLength": 1, "maxLength": 80, "pattern": "^[a-z][a-z0-9_]*$" },
+        "units": { "type": "string", "minLength": 1, "maxLength": 80 },
         "value": { "type": "number" },
+        "baseline": { "type": "number" },
+        "cap": { "type": "number" },
+        "normalization": { "type": "string", "enum": ["clamp_linear", "count"] },
+        "normalized_value": { "type": "number" },
         "weight": { "type": "number" },
-        "contribution": { "type": "number" }
+        "contribution": { "type": "number" },
+        "missing_data_behavior": { "type": "string", "enum": ["zero", "fail"] },
+        "penalty_interaction": { "type": "string", "enum": ["subtract_after_component_normalization"] }
       }
     }
   }

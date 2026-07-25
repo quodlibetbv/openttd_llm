@@ -41,6 +41,7 @@ public static class RunVerifier
         "final-save.sav",
         "input/starting-save.sav",
         "input/scenario.yaml",
+        "input/schemas/scenario.v1.json",
     ];
 
     public static async Task<RunVerificationResult> VerifyAsync(string runDirectory, CancellationToken cancellationToken)
@@ -156,6 +157,7 @@ public static class RunVerifier
             Matches("input/content-manifest.json", hashes.ContentManifestSha256) &&
             Matches("input/game-settings.cfg", hashes.GameSettingsSha256) &&
             Matches("input/scenario.yaml", hashes.ScenarioSha256) &&
+            Matches("input/schemas/scenario.v1.json", hashes.ScenarioSchemaSha256) &&
             Matches("input/prompt-template.txt", hashes.PromptTemplateSha256) &&
             Matches("input/tool-contracts.json", hashes.ToolContractSha256) &&
             Matches("input/schemas/observation.v1.json", hashes.ObservationSchemaSha256) &&

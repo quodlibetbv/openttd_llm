@@ -33,7 +33,7 @@
     "company": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["company_id", "name", "cash", "loan", "quarterly_income", "quarterly_expenses", "company_value", "performance_rating"],
+      "required": ["company_id", "name", "cash", "loan", "quarterly_income", "quarterly_expenses", "quarterly_cargo_delivered", "company_value", "performance_rating"],
       "properties": {
         "company_id": { "type": "integer", "minimum": 0 },
         "name": { "$ref": "#/$defs/name" },
@@ -41,6 +41,7 @@
         "loan": { "type": "integer", "minimum": 0 },
         "quarterly_income": { "type": "integer" },
         "quarterly_expenses": { "type": "integer" },
+        "quarterly_cargo_delivered": { "type": "integer", "minimum": 0 },
         "company_value": { "type": "integer" },
         "performance_rating": { "type": "integer", "minimum": 0 }
       }

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "published_scenarios": [
+    {
+      "scenario_id": "road-profit",
+      "version": "1.0.0",
+      "sha256": "ccf8d2402eeb55b2c831e36077103ec6ebcbc332e962c85d46fe8b1418a2830d"
+    },
+    {
+      "scenario_id": "road-profit-smoke",
+      "version": "1.0.0",
+      "sha256": "f76caa7a69a91c466d558267962b742bdd4420560ac6c3a714405252560e74ef"
+    }
+  ]
+}

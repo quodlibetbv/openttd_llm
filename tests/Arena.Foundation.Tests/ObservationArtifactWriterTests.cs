@@ -22,6 +22,7 @@ public sealed class ObservationArtifactWriterTests
                 writer.DecisionsPath,
                 writer.ProviderUsagePath,
                 writer.ActionsPath,
+                writer.MetricsPath,
             },
             path =>
             {

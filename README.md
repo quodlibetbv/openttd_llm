@@ -4,7 +4,7 @@ OpenTTD Model Arena is a Windows-first, hands-off benchmark and video-production
 
 ## Current status
 
-Phases 00–06 are complete. Phase 04–06 add canonical authoritative observations, replayable model decisions, a provider-neutral DeepSeek V4 adapter, and deterministic road-route execution over the authenticated AdminPort bridge. Both provider-free replay checks and the opt-in live-provider road acceptance have been verified on a prepared Windows host. Recording, scoring, and benchmark scenarios remain later phases.
+Phases 00–06 are complete. Phase 04–06 add canonical authoritative observations, replayable model decisions, a provider-neutral DeepSeek V4 adapter, and deterministic road-route execution over the authenticated AdminPort bridge. Phase 07 now adds versioned road-profit scenarios, pure scoring, immutable manifests, run verification, and accepted-action replay. Its Windows replay benchmark evidence must be collected before the phase status is advanced. Recording, overlay, and camera work remain later phases.
 
 ## Document map
 
@@ -18,6 +18,7 @@ Phases 00–06 are complete. Phase 04–06 add canonical authoritative observati
 | [docs/phase-02-acceptance.md](docs/phase-02-acceptance.md) | Phase 02 requirement-to-evidence map and Windows verification procedure. |
 | [docs/phase-03-acceptance.md](docs/phase-03-acceptance.md) | Phase 03 requirement-to-evidence map, migration, and Windows bridge verification. |
 | [docs/phase-04-06-verification.md](docs/phase-04-06-verification.md) | Phase 04–06 command guide, artifacts, replay/road checks, and safe DeepSeek verification. |
+| [docs/phase-07-verification.md](docs/phase-07-verification.md) | Phase 07 immutable benchmark, score verification, action replay, constraint proof, and Windows evidence guide. |
 | [docs/adr/](docs/adr/README.md) | Accepted architecture and compatibility decisions. |
 | [phases/PHASE-00-FOUNDATION.md](phases/PHASE-00-FOUNDATION.md) | Product decisions, repository skeleton, and engineering baseline. |
 | [phases/PHASE-01-SETUP-AND-DOCTOR.md](phases/PHASE-01-SETUP-AND-DOCTOR.md) | Repeatable Windows setup and environment diagnostics. |
@@ -41,13 +42,13 @@ ttd-arena doctor
 
 ttd-arena smoke --duration-seconds 10
 
-ttd-arena run `
-  --scenario scenarios/road-profit-v1.yaml `
-  --provider deepseek `
-  --model <model-id> `
-  --key-ref credman:OpenTTDModelArena/DeepSeek `
-  --runs 5 `
-  --record
+ttd-arena benchmark run scenarios/road-profit-v1.yaml deepseek
+
+ttd-arena verify-run <run-directory>
+
+ttd-arena score recalculate <run-directory>
+
+ttd-arena actions replay <run-directory>
 
 ttd-arena tournament `
   --scenario scenarios/road-profit-v1.yaml `
@@ -59,7 +60,7 @@ ttd-arena tournament `
 
 The product is complete when a clean Windows machine can install the prerequisites, pass `ttd-arena doctor`, execute a full unattended tournament, recover from individual run failures, and produce synchronized videos, decision logs, final savegames, immutable manifests, and statistically comparable scores without manual interaction.
 
-## Phase 04–06 source-quality gate
+## Phase 04–07 source-quality gate
 
 On a machine with the .NET 8 SDK and Node.js 20 or later:
 
@@ -74,4 +75,4 @@ npm test --prefix src/Arena.Overlay
 npm run build --prefix src/Arena.Overlay
 ```
 
-`pwsh ./scripts/test-all.ps1` runs the same source-quality gate on the supported Windows host. See [SETUP.md](SETUP.md) and [Phase 04–06 verification](docs/phase-04-06-verification.md) for bootstrap, Credential Manager, replay, road, and live-provider verification. The source-quality gate does not itself launch OpenTTD or call a paid provider.
+`pwsh ./scripts/test-all.ps1` runs the same source-quality gate on the supported Windows host. See [SETUP.md](SETUP.md), [Phase 04–06 verification](docs/phase-04-06-verification.md), and [Phase 07 verification](docs/phase-07-verification.md) for bootstrap, Credential Manager, replay, road, immutable benchmark, and live-provider verification. The source-quality gate does not itself launch OpenTTD or call a paid provider.

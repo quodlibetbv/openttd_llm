@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "run_id": "run-0001",
+  "sample_id": "metric-final-1",
+  "kind": "final",
+  "source": "gamescript",
+  "game_date": "1950-01-01",
+  "game_tick": 74,
+  "metrics": {
+    "cash": 90000,
+    "loan": 0,
+    "quarterly_income": 1000,
+    "quarterly_expenses": 500,
+    "operating_profit": 500,
+    "company_value": 100500,
+    "quarterly_cargo_delivered": 10,
+    "active_vehicle_count": 1,
+    "operational_route_count": 1,
+    "completed_project_count": 1,
+    "infrastructure_investment": 10000,
+    "invalid_decision_count": 0,
+    "constraint_violation_count": 0
+  }
+}

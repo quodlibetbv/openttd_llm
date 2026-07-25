@@ -36,6 +36,7 @@
       "quarterly_income": 0,
       "quarterly_expenses": 0,
       "quarterly_profit": 0,
+      "quarterly_cargo_delivered": 0,
       "company_value": 100000,
       "performance_rating": 0
     },
