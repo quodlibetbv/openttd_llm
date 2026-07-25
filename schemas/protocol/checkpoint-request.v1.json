@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openttd-model-arena.dev/schemas/protocol/checkpoint-request.v1.json",
+  "title": "Arena trusted supervisor checkpoint request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project_id",
+    "pause_after_state"
+  ],
+  "properties": {
+    "project_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "pause_after_state": {
+      "type": "string",
+      "enum": [
+        "proposed",
+        "validating",
+        "surveying",
+        "building_infrastructure",
+        "buying_vehicles",
+        "configuring_orders",
+        "verifying"
+      ]
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    }
+  }
+}

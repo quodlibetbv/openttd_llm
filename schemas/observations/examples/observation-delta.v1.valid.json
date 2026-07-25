@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "run_id": "run-0001",
+  "from_observation_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "to_observation_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "operations": [
+    {
+      "op": "set",
+      "path": "/sections/financial_summary/cash",
+      "value": 84000
+    },
+    {
+      "op": "remove",
+      "path": "/sections/active_projects/legacy_note"
+    }
+  ]
+}

@@ -136,7 +136,7 @@ public sealed class DoctorServiceTests
     {
         string runtimeRoot = directory.CreateDirectory(".runtime");
         directory.WriteFile("openttd/game/ArenaGS/main.nut", "class ArenaGS {}");
-        directory.WriteFile("openttd/game/ArenaGS/info.nut", "ArenaGS function GetShortName() { return \"ARGS\"; } function GetAPIVersion() { return \"1.2\"; } RegisterGS");
+        directory.WriteFile("openttd/game/ArenaGS/info.nut", $"ArenaGS function GetShortName() {{ return \"ARGS\"; }} function GetAPIVersion() {{ return \"{ArenaRuntimeLayout.ArenaGameScriptApiVersion}\"; }} RegisterGS");
         directory.WriteFile("openttd/ai/ModelProxyAI/main.nut", "class ModelProxyAI {}");
         directory.WriteFile("openttd/ai/ModelProxyAI/info.nut", "ModelProxyAI function GetShortName() { return \"MPAI\"; } function GetAPIVersion() { return \"1.0\"; } RegisterAI");
         RuntimeLayoutResult runtime = await RuntimeLayoutBuilder.PrepareAsync(

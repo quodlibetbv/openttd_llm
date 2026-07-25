@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "run_id": "fixture-bankruptcy-risk",
+  "game_date": "1951-11-19",
+  "sections": {
+    "run_context": { "scenario_id": "road-profit", "scenario_version": "1.0.0", "benchmark_company_id": 1, "currency": "game_money" },
+    "goal_context": { "goal_id": "road-profit", "goal_version": "1.0.0", "title": "Avoid bankruptcy", "objective": "Preserve the company and do not authorize unaffordable construction.", "allowed_tools": ["inspect_company", "repay_loan", "take_loan", "wait"], "ranking_rule": "population_then_distance" },
+    "game_clock": { "game_date": "1951-11-19", "game_tick": 690, "paused": true },
+    "company_summary": { "company_id": 1, "name": "Fixture Transit", "vehicle_count": 1, "station_count": 2, "route_count": 1 },
+    "financial_summary": { "currency": "game_money", "cash": -7000, "loan": 300000, "quarterly_income": 9000, "quarterly_expenses": -41000, "quarterly_profit": -32000, "company_value": -160000, "performance_rating": 4 },
+    "network_summary": { "stations": [ { "station_id": 41, "name": "Ivy Stop", "location": { "x": 8, "y": 8 }, "vehicle_count": 0 }, { "station_id": 42, "name": "Juniper Stop", "location": { "x": 20, "y": 8 }, "vehicle_count": 0 } ], "vehicles": [ { "vehicle_id": 401, "name": "Ivy Shuttle", "vehicle_type": "road", "state": "in_depot", "profit_last_year": -39000, "location": { "x": 7, "y": 8 } } ], "routes": [ { "route_id": "route-ivy-juniper", "action_id": "action-ivy-juniper", "source_station_id": 41, "destination_station_id": 42, "cargo": "passengers", "vehicle_ids": [401], "operational": false } ] },
+    "active_projects": [ { "project_id": "project-ivy-juniper", "action_id": "action-ivy-juniper", "state": "failed", "spent": 87000, "maximum_budget": 90000, "failure_code": "ARENA-ACTION-BUDGET-EXCEEDED" } ],
+    "constraints_and_budgets": { "minimum_cash_reserve": 25000, "per_project_budget": 90000, "available_project_budget": 0 },
+    "candidate_opportunities": { "towns": [ { "town_id": 10, "name": "Ivy", "population": 600, "location": { "x": 8, "y": 8 } }, { "town_id": 11, "name": "Juniper", "population": 500, "location": { "x": 20, "y": 8 } } ], "industries": [], "opportunities": [ { "opportunity_id": "opportunity-10-11-passengers", "kind": "town_pair", "source_town_id": 10, "source_town_name": "Ivy", "destination_town_id": 11, "destination_town_name": "Juniper", "cargo": "passengers", "distance_tiles": 12, "ranking_score": 1088 } ] },
+    "recent_events": [ { "event_id": "event-bankruptcy-1", "event_code": "ARENA-PROJECT-FAILED", "game_date": "1951-11-19", "entity_ids": ["project-ivy-juniper"], "public_summary": "A project stopped before exceeding its declared budget." } ],
+    "prior_decision_results": [ { "decision_id": "decision-bankruptcy", "action_id": "action-ivy-juniper", "status": "failed", "message": "The project was stopped safely when the remaining budget was insufficient." } ],
+    "remaining_model_budget": { "remaining_calls": 1, "remaining_output_tokens": 300, "remaining_retries": 0 }
+  }
+}

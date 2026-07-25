@@ -6,7 +6,7 @@ Each phase produces a demonstrable increment with explicit exit criteria. A phas
 
 ## Current status
 
-Phase 00 — Foundation, Phase 01 — Setup and Doctor, Phase 02 — Reproducible Game Run, and Phase 03 — AdminPort Bridge are complete. Phase 04-and-later documents define planned deliverables and must not be read as implemented behavior.
+Phases 00–06 are complete. Phase 04 provides canonical, replayable authoritative observations; Phase 05 provides interchangeable replay and DeepSeek decision adapters; and Phase 06 provides deterministic road-route execution, recovery, and operation verification. Phase 07-and-later documents define planned deliverables and must not be read as implemented behavior.
 
 ## Milestone summary
 

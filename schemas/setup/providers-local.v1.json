@@ -50,6 +50,32 @@
           "minLength": 27,
           "maxLength": 264,
           "pattern": "^credman:OpenTTDModelArena/[A-Za-z0-9._-]+$"
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300
+        },
+        "maximum_transient_retries": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "input_cost_per_million_tokens": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "output_cost_per_million_tokens": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000
         }
       }
     }

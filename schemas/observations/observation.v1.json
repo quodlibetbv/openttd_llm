@@ -2,28 +2,15 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openttd-model-arena.dev/schemas/observations/observation.v1.json",
   "title": "Arena normalized observation v1",
+  "description": "Provider-neutral, bounded, authoritative observation sent to a model.",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "schema_version",
-    "run_id",
-    "game_date",
-    "sections"
-  ],
+  "required": ["schema_version", "run_id", "game_date", "sections"],
   "properties": {
-    "schema_version": {
-      "const": "1.0"
-    },
-    "run_id": {
-      "$ref": "#/$defs/identifier"
-    },
-    "game_date": {
-      "type": "string",
-      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
-    },
-    "sections": {
-      "$ref": "#/$defs/sections"
-    }
+    "schema_version": { "const": "1.0" },
+    "run_id": { "$ref": "#/$defs/identifier" },
+    "game_date": { "$ref": "#/$defs/date" },
+    "sections": { "$ref": "#/$defs/sections" }
   },
   "$defs": {
     "identifier": {
@@ -32,57 +19,269 @@
       "maxLength": 128,
       "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
     },
-    "summary": {
+    "date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "public_text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]*$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]*$"
+    },
+    "coordinate": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "summary"
-      ],
+      "required": ["x", "y"],
       "properties": {
-        "summary": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1000
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "town": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["town_id", "name", "population", "location"],
+      "properties": {
+        "town_id": { "type": "integer", "minimum": 0 },
+        "name": { "$ref": "#/$defs/name" },
+        "population": { "type": "integer", "minimum": 0 },
+        "location": { "$ref": "#/$defs/coordinate" }
+      }
+    },
+    "industry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["industry_id", "name", "location"],
+      "properties": {
+        "industry_id": { "type": "integer", "minimum": 0 },
+        "name": { "$ref": "#/$defs/name" },
+        "location": { "$ref": "#/$defs/coordinate" }
+      }
+    },
+    "station": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["station_id", "name", "location", "vehicle_count"],
+      "properties": {
+        "station_id": { "type": "integer", "minimum": 0 },
+        "name": { "$ref": "#/$defs/name" },
+        "location": { "$ref": "#/$defs/coordinate" },
+        "vehicle_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "vehicle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["vehicle_id", "name", "vehicle_type", "state", "profit_last_year", "location"],
+      "properties": {
+        "vehicle_id": { "type": "integer", "minimum": 0 },
+        "name": { "$ref": "#/$defs/name" },
+        "vehicle_type": { "type": "string", "enum": ["road", "rail", "water", "air"] },
+        "state": { "type": "string", "enum": ["running", "stopped", "in_depot", "at_station", "broken", "crashed"] },
+        "profit_last_year": { "type": "integer" },
+        "location": { "$ref": "#/$defs/coordinate" }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["route_id", "action_id", "source_station_id", "destination_station_id", "cargo", "vehicle_ids", "operational"],
+      "properties": {
+        "route_id": { "$ref": "#/$defs/identifier" },
+        "action_id": { "$ref": "#/$defs/identifier" },
+        "source_station_id": { "type": "integer", "minimum": 0 },
+        "destination_station_id": { "type": "integer", "minimum": 0 },
+        "cargo": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "vehicle_ids": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "type": "integer", "minimum": 0 }
         },
+        "operational": { "type": "boolean" }
+      }
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project_id", "action_id", "state", "spent", "maximum_budget"],
+      "properties": {
+        "project_id": { "$ref": "#/$defs/identifier" },
+        "action_id": { "$ref": "#/$defs/identifier" },
+        "state": {
+          "type": "string",
+          "enum": ["proposed", "validating", "surveying", "building_infrastructure", "buying_vehicles", "configuring_orders", "verifying", "adjusting_fleet", "completed", "recovering", "failed"]
+        },
+        "spent": { "type": "integer", "minimum": 0 },
+        "maximum_budget": { "type": "integer", "minimum": 1 },
+        "failure_code": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^ARENA-[A-Z0-9-]+$" }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "event_code", "game_date", "entity_ids", "public_summary"],
+      "properties": {
+        "event_id": { "$ref": "#/$defs/identifier" },
+        "event_code": { "type": "string", "minLength": 1, "maxLength": 80, "pattern": "^ARENA-[A-Z0-9-]+$" },
+        "game_date": { "$ref": "#/$defs/date" },
         "entity_ids": {
           "type": "array",
-          "maxItems": 100,
-          "items": {
-            "$ref": "#/$defs/identifier"
-          }
-        }
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/identifier" }
+        },
+        "public_summary": { "$ref": "#/$defs/public_text" },
+        "correlation_id": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "decision_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision_id", "action_id", "status", "message"],
+      "properties": {
+        "decision_id": { "$ref": "#/$defs/identifier" },
+        "action_id": { "$ref": "#/$defs/identifier" },
+        "status": { "type": "string", "enum": ["accepted", "in_progress", "completed", "failed", "rejected", "duplicate"] },
+        "message": { "$ref": "#/$defs/public_text" }
+      }
+    },
+    "opportunity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["opportunity_id", "kind", "source_town_id", "source_town_name", "destination_town_id", "destination_town_name", "cargo", "distance_tiles", "ranking_score"],
+      "properties": {
+        "opportunity_id": { "$ref": "#/$defs/identifier" },
+        "kind": { "type": "string", "enum": ["town_pair"] },
+        "source_town_id": { "type": "integer", "minimum": 0 },
+        "source_town_name": { "$ref": "#/$defs/name" },
+        "destination_town_id": { "type": "integer", "minimum": 0 },
+        "destination_town_name": { "$ref": "#/$defs/name" },
+        "cargo": { "type": "string", "enum": ["passengers"] },
+        "distance_tiles": { "type": "integer", "minimum": 1 },
+        "ranking_score": { "type": "integer", "minimum": 0 }
       }
     },
     "sections": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "run_context",
-        "goal_context",
-        "game_clock",
-        "company_summary",
-        "financial_summary",
-        "network_summary",
-        "active_projects",
-        "constraints_and_budgets",
-        "candidate_opportunities",
-        "recent_events",
-        "prior_decision_results",
-        "remaining_model_budget"
-      ],
+      "required": ["run_context", "goal_context", "game_clock", "company_summary", "financial_summary", "network_summary", "active_projects", "constraints_and_budgets", "candidate_opportunities", "recent_events", "prior_decision_results", "remaining_model_budget"],
       "properties": {
-        "run_context": { "$ref": "#/$defs/summary" },
-        "goal_context": { "$ref": "#/$defs/summary" },
-        "game_clock": { "$ref": "#/$defs/summary" },
-        "company_summary": { "$ref": "#/$defs/summary" },
-        "financial_summary": { "$ref": "#/$defs/summary" },
-        "network_summary": { "$ref": "#/$defs/summary" },
-        "active_projects": { "$ref": "#/$defs/summary" },
-        "constraints_and_budgets": { "$ref": "#/$defs/summary" },
-        "candidate_opportunities": { "$ref": "#/$defs/summary" },
-        "recent_events": { "$ref": "#/$defs/summary" },
-        "prior_decision_results": { "$ref": "#/$defs/summary" },
-        "remaining_model_budget": { "$ref": "#/$defs/summary" }
+        "run_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["scenario_id", "scenario_version", "benchmark_company_id", "currency"],
+          "properties": {
+            "scenario_id": { "$ref": "#/$defs/identifier" },
+            "scenario_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+            "benchmark_company_id": { "type": "integer", "minimum": 0 },
+            "currency": { "type": "string", "const": "game_money" }
+          }
+        },
+        "goal_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["goal_id", "goal_version", "title", "objective", "allowed_tools", "ranking_rule"],
+          "properties": {
+            "goal_id": { "$ref": "#/$defs/identifier" },
+            "goal_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+            "title": { "$ref": "#/$defs/name" },
+            "objective": { "type": "string", "minLength": 1, "maxLength": 2000, "pattern": "^[^\\u0000-\\u001F\\u007F]*$" },
+            "allowed_tools": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 32,
+              "uniqueItems": true,
+              "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+            },
+            "ranking_rule": { "type": "string", "enum": ["population_then_distance"] }
+          }
+        },
+        "game_clock": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["game_date", "game_tick", "paused"],
+          "properties": {
+            "game_date": { "$ref": "#/$defs/date" },
+            "game_tick": { "type": "integer", "minimum": 0 },
+            "paused": { "type": "boolean" }
+          }
+        },
+        "company_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["company_id", "name", "vehicle_count", "station_count", "route_count"],
+          "properties": {
+            "company_id": { "type": "integer", "minimum": 0 },
+            "name": { "$ref": "#/$defs/name" },
+            "vehicle_count": { "type": "integer", "minimum": 0 },
+            "station_count": { "type": "integer", "minimum": 0 },
+            "route_count": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "financial_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["currency", "cash", "loan", "quarterly_income", "quarterly_expenses", "quarterly_profit", "company_value", "performance_rating"],
+          "properties": {
+            "currency": { "type": "string", "const": "game_money" },
+            "cash": { "type": "integer" },
+            "loan": { "type": "integer", "minimum": 0 },
+            "quarterly_income": { "type": "integer" },
+            "quarterly_expenses": { "type": "integer" },
+            "quarterly_profit": { "type": "integer" },
+            "company_value": { "type": "integer" },
+            "performance_rating": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "network_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["stations", "vehicles", "routes"],
+          "properties": {
+            "stations": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/station" } },
+            "vehicles": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/vehicle" } },
+            "routes": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/route" } }
+          }
+        },
+        "active_projects": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/project" } },
+        "constraints_and_budgets": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["minimum_cash_reserve", "per_project_budget", "available_project_budget"],
+          "properties": {
+            "minimum_cash_reserve": { "type": "integer", "minimum": 0 },
+            "per_project_budget": { "type": "integer", "minimum": 1 },
+            "available_project_budget": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "candidate_opportunities": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["towns", "industries", "opportunities"],
+          "properties": {
+            "towns": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/town" } },
+            "industries": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/industry" } },
+            "opportunities": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/opportunity" } }
+          }
+        },
+        "recent_events": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/event" } },
+        "prior_decision_results": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/decision_result" } },
+        "remaining_model_budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["remaining_calls", "remaining_output_tokens", "remaining_retries"],
+          "properties": {
+            "remaining_calls": { "type": "integer", "minimum": 0 },
+            "remaining_output_tokens": { "type": "integer", "minimum": 0 },
+            "remaining_retries": { "type": "integer", "minimum": 0, "maximum": 1 }
+          }
+        }
       }
     }
   }

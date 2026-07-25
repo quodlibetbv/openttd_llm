@@ -12,6 +12,7 @@ public enum OpenTtdConsoleOperation
     Pause,
     Unpause,
     Save,
+    Load,
     Quit,
 }
 
@@ -21,7 +22,13 @@ public sealed record OpenTtdConsoleCommand(OpenTtdConsoleOperation Operation, st
     public static OpenTtdConsoleCommand Unpause { get; } = new(OpenTtdConsoleOperation.Unpause);
     public static OpenTtdConsoleCommand Quit { get; } = new(OpenTtdConsoleOperation.Quit);
 
-    public static OpenTtdConsoleCommand Save(string saveName)
+    public static OpenTtdConsoleCommand Save(string saveName) =>
+        CreateSaveLoadCommand(OpenTtdConsoleOperation.Save, saveName);
+
+    public static OpenTtdConsoleCommand Load(string saveName) =>
+        CreateSaveLoadCommand(OpenTtdConsoleOperation.Load, saveName);
+
+    private static OpenTtdConsoleCommand CreateSaveLoadCommand(OpenTtdConsoleOperation operation, string saveName)
     {
         if (string.IsNullOrWhiteSpace(saveName) ||
             !saveName.All(character =>
@@ -30,7 +37,7 @@ public sealed record OpenTtdConsoleCommand(OpenTtdConsoleOperation Operation, st
             throw new ArgumentException("OpenTTD save names must use lowercase letters, digits, or hyphens.", nameof(saveName));
         }
 
-        return new OpenTtdConsoleCommand(OpenTtdConsoleOperation.Save, saveName);
+        return new OpenTtdConsoleCommand(operation, saveName);
     }
 }
 

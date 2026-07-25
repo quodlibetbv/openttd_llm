@@ -6,6 +6,8 @@ Error codes are stable, machine-readable identifiers. User-facing messages state
 |---|---|---|
 | `ARENA-PROVIDER-TIMEOUT` | The configured provider call did not finish within its timeout. | Providers |
 | `ARENA-PROVIDER-INVALID-OUTPUT` | A provider response could not satisfy the common decision contract. | Providers |
+| `ARENA-PROVIDER-INVALID-JSON` | A provider response was not syntactically valid JSON. | Providers |
+| `ARENA-PROVIDER-SCHEMA-MISMATCH` | Valid JSON did not satisfy the closed common decision schema or safe bounds. | Providers |
 | `ARENA-PROVIDER-REPLAY-EXHAUSTED` | A replay run requested more decisions than its fixture provides. | Providers |
 | `ARENA-PROVIDER-REPLAY-OBSERVATION-MISMATCH` | A replay fixture does not match the normalized observation hash. | Providers |
 | `ARENA-PROTOCOL-VERSION-MISMATCH` | A component cannot safely use the negotiated protocol version. | Admin protocol |
@@ -23,6 +25,12 @@ Error codes are stable, machine-readable identifiers. User-facing messages state
 | `ARENA-ADMINPORT-SECRET-INVALID` | The dedicated AdminPort credential cannot safely be written to OpenTTD `secrets.cfg`. | Admin protocol |
 | `ARENA-ACTION-CONSTRAINT-VIOLATION` | A requested action violates scenario or game-side constraints. | GameScript |
 | `ARENA-ACTION-PATH-NOT-FOUND` | Deterministic path construction found no allowed path. | GameScript |
+| `ARENA-ACTION-STATION-PLACEMENT-FAILED` | A bounded station or depot placement search could not produce a buildable native placement. | GameScript |
+| `ARENA-ACTION-BUDGET-EXCEEDED` | The next deterministic project command would exceed its declared budget or available funds. | GameScript |
+| `ARENA-ACTION-INSUFFICIENT-FUNDS` | A route request declared more budget than the benchmark company currently has. | GameScript |
+| `ARENA-ACTION-VEHICLE-UNSUITABLE` | No compatible passenger road vehicle could be selected or purchased. | GameScript |
+| `ARENA-ACTION-ORDER-INVALID` | A required route order, station, or vehicle state could not be validated. | GameScript |
+| `ARENA-ACTION-VERIFICATION-TIMED-OUT` | A route did not demonstrate movement before the bounded operational-verification deadline. | GameScript |
 | `ARENA-OPENTTD-PROCESS-EXITED` | A supervised OpenTTD process exited unexpectedly. | Orchestrator |
 | `ARENA-RUN-ALLOCATION-FAILED` | The orchestrator could not reserve a unique contained run directory. | Storage |
 | `ARENA-RUN-PREPARATION-FAILED` | Isolated run templates, paths, or fixed-save preparation could not be completed safely. | Orchestrator |

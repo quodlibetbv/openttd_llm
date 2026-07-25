@@ -1,0 +1,14 @@
+{
+  "id": "chatcmpl-sanitized-0001",
+  "choices": [
+    {
+      "message": {
+        "content": "{\"decision_id\":\"decision-0001\",\"public_summary\":\"Wait for a bounded review.\",\"observations\":[\"The local fixture is deterministic.\"],\"actions\":[{\"tool\":\"wait\",\"arguments\":{\"game_days\":30}}],\"next_review_game_days\":30}"
+      }
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 12,
+    "completion_tokens": 7
+  }
+}
