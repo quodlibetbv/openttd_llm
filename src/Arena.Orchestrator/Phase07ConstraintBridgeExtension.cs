@@ -68,6 +68,68 @@ public sealed class Phase07ConstraintBridgeExtension : IPhase03BridgeExtension
             }
 
             ScenarioActionConstraintContext constraints = ScenarioLoader.CreateActionConstraintContext(_scenario);
+            ScenarioActionConstraintContext toolRestrictedConstraints = constraints with
+            {
+                AllowedTools = constraints.AllowedTools
+                    .Where(tool => !string.Equals(tool, RoadToolCatalog.Wait, StringComparison.Ordinal))
+                    .ToArray(),
+            };
+            ModelAction disallowedWaitAction = new()
+            {
+                Tool = RoadToolCatalog.Wait,
+                Arguments = JsonSerializer.SerializeToElement(new { game_days = 1 }),
+            };
+            RoadActionValidationResult toolAllowlistValidation = ScenarioActionConstraintValidator.Validate(
+                disallowedWaitAction,
+                initialObservation.Snapshot,
+                toolRestrictedConstraints);
+            if (toolAllowlistValidation.IsValid ||
+                !string.Equals(toolAllowlistValidation.ErrorCode, ArenaErrorCodes.ActionConstraintViolation, StringComparison.Ordinal))
+            {
+                return Phase03BridgeExtensionResult.Failure(
+                    ArenaErrorCodes.ArtifactVerificationFailed,
+                    "The deliberate wait action did not isolate the orchestrator's scenario tool-allowlist constraint.",
+                    checks);
+            }
+
+            ActionRequest toolOrchestratorRejectedRequest = CreateRequest(
+                context.RunId,
+                "constraint-tool-orchestrator",
+                disallowedWaitAction,
+                toolRestrictedConstraints);
+            ActionResult toolOrchestratorRejectedResult = new()
+            {
+                ActionId = toolOrchestratorRejectedRequest.ActionId,
+                RunId = context.RunId,
+                CorrelationId = toolOrchestratorRejectedRequest.CorrelationId,
+                Status = "rejected",
+                ErrorCode = toolAllowlistValidation.ErrorCode,
+                Message = toolAllowlistValidation.Message,
+            };
+            await artifacts.AppendActionAsync(
+                CreateRecord(context.RunId, toolOrchestratorRejectedRequest, toolOrchestratorRejectedResult),
+                cancellationToken);
+
+            ActionRequest toolGameRejectedRequest = CreateRequest(
+                context.RunId,
+                "constraint-tool-gamescript",
+                disallowedWaitAction,
+                toolRestrictedConstraints);
+            GameScriptActionResult toolGameExecution = await gameScript.ExecuteActionAsync(
+                toolGameRejectedRequest,
+                context.RequestTimeout,
+                cancellationToken);
+            ActionResult toolGameRejectedResult = toolGameExecution.Action ?? FailedResult(toolGameRejectedRequest, toolGameExecution.Error);
+            await artifacts.AppendActionAsync(CreateRecord(context.RunId, toolGameRejectedRequest, toolGameRejectedResult), cancellationToken);
+            if (!string.Equals(toolGameRejectedResult.Status, "rejected", StringComparison.Ordinal) ||
+                !string.Equals(toolGameRejectedResult.ErrorCode, ArenaErrorCodes.ActionConstraintViolation, StringComparison.Ordinal))
+            {
+                return Phase03BridgeExtensionResult.Failure(
+                    toolGameRejectedResult.ErrorCode ?? ArenaErrorCodes.ArtifactVerificationFailed,
+                    "ArenaGS did not independently reject a scenario-disallowed wait action.",
+                    checks);
+            }
+
             ModelAction routeAction = new()
             {
                 Tool = RoadToolCatalog.BuildTransportRoute,
@@ -166,6 +228,8 @@ public sealed class Phase07ConstraintBridgeExtension : IPhase03BridgeExtension
 
             checks.Add(Pass("constraint-orchestrator", "The orchestrator recorded a scenario maximum-active-project rejection before any second action crossed AdminPort."));
             checks.Add(Pass("constraint-gamescript", "ArenaGS independently rejected the same scenario-constrained second route and created no project."));
+            checks.Add(Pass("constraint-tool-orchestrator", "The orchestrator recorded a scenario tool-allowlist rejection before a disallowed wait action crossed AdminPort."));
+            checks.Add(Pass("constraint-tool-gamescript", "ArenaGS independently rejected the same scenario-disallowed wait action."));
             return Phase03BridgeExtensionResult.Success("The Phase 07 scenario constraint boundary was enforced and recorded by both trusted layers.", checks);
         }
         finally

@@ -574,7 +574,10 @@ class ArenaGS extends GSController {
             cash = GSCompany.GetBankBalance(company_id),
             loan = GSCompany.GetLoanAmount(),
             quarterly_income = GSCompany.GetQuarterlyIncome(company_id, GSCompany.CURRENT_QUARTER),
-            quarterly_expenses = GSCompany.GetQuarterlyExpenses(company_id, GSCompany.CURRENT_QUARTER),
+            /* OpenTTD stores recurring expenses as signed costs. The public
+             * Arena contract carries a normalized positive expense magnitude,
+             * so quarterly profit remains income minus expenses everywhere. */
+            quarterly_expenses = this.NonNegative(-GSCompany.GetQuarterlyExpenses(company_id, GSCompany.CURRENT_QUARTER)),
             quarterly_cargo_delivered = this.NonNegative(GSCompany.GetQuarterlyCargoDelivered(company_id, GSCompany.CURRENT_QUARTER)),
             company_value = GSCompany.GetQuarterlyCompanyValue(company_id, GSCompany.CURRENT_QUARTER),
             performance_rating = rating < 0 ? 0 : rating,
@@ -867,6 +870,20 @@ class ArenaGS extends GSController {
                 error_code = "ARENA-ACTION-CONSTRAINT-VIOLATION",
                 message = "The action request did not contain a supported typed road tool.",
             });
+            return;
+        }
+
+        /* A scenario context is trusted metadata from the orchestrator, not
+         * provider input. Enforce its complete tool surface before dispatch so
+         * read-only, finance, and wait tools cannot bypass the same immutable
+         * allowlist that protects route construction. */
+        if (action.rawin("constraint_context") && !this.ScenarioAllowsTool(action)) {
+            this.RecordAndSend(envelope, "action_result", this.ActionResultPayload(
+                action,
+                "rejected",
+                "ARENA-ACTION-CONSTRAINT-VIOLATION",
+                "The selected tool is not allowed by the immutable scenario.",
+                null));
             return;
         }
 
@@ -1171,6 +1188,12 @@ class ArenaGS extends GSController {
         local amount = action.arguments.amount;
         if (interval <= 0 || amount % interval != 0) {
             this.RecordAndSend(envelope, "action_result", this.ActionResultPayload(action, "rejected", "ARENA-ACTION-CONSTRAINT-VIOLATION", "The finance amount must align to the current company loan interval.", null));
+            return;
+        }
+
+        if (action.rawin("constraint_context") && action.tool == "repay_loan" &&
+            GSCompany.GetBankBalance(company_id) - amount < action.constraint_context.minimum_cash_reserve) {
+            this.RecordAndSend(envelope, "action_result", this.ActionResultPayload(action, "rejected", "ARENA-ACTION-CONSTRAINT-VIOLATION", "The loan repayment would breach the scenario cash reserve.", null));
             return;
         }
 

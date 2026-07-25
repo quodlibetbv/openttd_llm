@@ -95,6 +95,24 @@ public sealed class BenchmarkReplayTests
             CanonicalJson.SerializeToString(JsonSerializer.SerializeToElement(deepSeek)));
     }
 
+    [Fact]
+    public void CapturesOperatingProfitFromNormalizedPositiveExpenses()
+    {
+        GameScriptSnapshot snapshot = ObservationTestData.CreateGameSnapshot();
+
+        BenchmarkMetricSnapshot metrics = BenchmarkMetricCollector.Capture(
+            "run-0001",
+            "metric-periodic-1",
+            "periodic",
+            snapshot,
+            0,
+            0);
+
+        Assert.Equal(10_000, metrics.Metrics.QuarterlyIncome);
+        Assert.Equal(4_000, metrics.Metrics.QuarterlyExpenses);
+        Assert.Equal(6_000, metrics.Metrics.OperatingProfit);
+    }
+
     private static RecordedAction CreateAction(string actionId, string status)
     {
         ActionRequest request = new()

@@ -6,6 +6,11 @@ the code, but must treat `public_summary` as display text rather than a command
 or a source of hidden reasoning. Every event has a stable `event_id`, game date,
 bounded entity IDs, and—where an action caused it—a correlation ID.
 
+Financial snapshots use normalized signs: `quarterly_income` and
+`quarterly_expenses` are non-negative magnitudes, and `quarterly_profit` (and
+the Phase 07 `operating_profit` metric) is income minus expenses. ArenaGS
+normalizes OpenTTD's signed recurring-expense value at the GameScript boundary.
+
 | Code | Meaning |
 | --- | --- |
 | `ARENA-FINANCE-UPDATED` | A typed loan action completed. |

@@ -71,6 +71,47 @@ public sealed class ScenarioActionConstraintValidatorTests
         Assert.Equal(ArenaErrorCodes.ActionConstraintViolation, result.ErrorCode);
     }
 
+    [Fact]
+    public void BlocksDisallowedToolsAndLoanRepaymentPastTheScenarioCashReserve()
+    {
+        ObservationSnapshot snapshot = ObservationTestData.BuildSnapshot().Snapshot;
+        ScenarioActionConstraintContext routeOnly = CreateConstraints() with
+        {
+            AllowedTools = [RoadToolCatalog.BuildTransportRoute],
+        };
+        ModelAction wait = ObservationTestData.Action(
+            RoadToolCatalog.Wait,
+            """
+            { "game_days": 1 }
+            """);
+        ModelAction exactReserveRepayment = ObservationTestData.Action(
+            RoadToolCatalog.RepayLoan,
+            """
+            { "amount": 90000 }
+            """);
+        ModelAction reserveBreachingRepayment = ObservationTestData.Action(
+            RoadToolCatalog.RepayLoan,
+            """
+            { "amount": 90001 }
+            """);
+
+        RoadActionValidationResult disallowedTool = ScenarioActionConstraintValidator.Validate(wait, snapshot, routeOnly);
+        RoadActionValidationResult exactReserve = ScenarioActionConstraintValidator.Validate(
+            exactReserveRepayment,
+            snapshot,
+            CreateConstraints());
+        RoadActionValidationResult reserveBreach = ScenarioActionConstraintValidator.Validate(
+            reserveBreachingRepayment,
+            snapshot,
+            CreateConstraints());
+
+        Assert.False(disallowedTool.IsValid);
+        Assert.Equal(ArenaErrorCodes.ActionConstraintViolation, disallowedTool.ErrorCode);
+        Assert.True(exactReserve.IsValid);
+        Assert.False(reserveBreach.IsValid);
+        Assert.Equal(ArenaErrorCodes.ActionConstraintViolation, reserveBreach.ErrorCode);
+    }
+
     private static ScenarioActionConstraintContext CreateConstraints() => new()
     {
         ScenarioId = "road-profit-smoke",

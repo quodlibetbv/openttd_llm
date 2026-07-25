@@ -7,7 +7,7 @@
     "goal_context": { "goal_id": "road-profit", "goal_version": "1.0.0", "title": "Grow a profitable passenger network", "objective": "Use surplus cash to add viable passenger routes.", "allowed_tools": ["inspect_company", "list_opportunities", "build_transport_route", "expand_route", "wait"], "ranking_rule": "population_then_distance" },
     "game_clock": { "game_date": "1952-06-01", "game_tick": 890, "paused": true },
     "company_summary": { "company_id": 1, "name": "Fixture Transit", "vehicle_count": 2, "station_count": 2, "route_count": 1 },
-    "financial_summary": { "currency": "game_money", "cash": 320000, "loan": 0, "quarterly_income": 68000, "quarterly_expenses": -21000, "quarterly_profit": 47000, "quarterly_cargo_delivered": 1240, "company_value": 455000, "performance_rating": 68 },
+    "financial_summary": { "currency": "game_money", "cash": 320000, "loan": 0, "quarterly_income": 68000, "quarterly_expenses": 21000, "quarterly_profit": 47000, "quarterly_cargo_delivered": 1240, "company_value": 455000, "performance_rating": 68 },
     "network_summary": {
       "stations": [
         { "station_id": 11, "name": "Alpha Central", "location": { "x": 20, "y": 21 }, "vehicle_count": 1 },

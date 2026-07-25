@@ -85,6 +85,7 @@ public sealed class Phase07RoadProfitBridgeExtension : IPhase03BridgeExtension
             await artifacts.AppendMetricAsync(
                 BenchmarkMetricCollector.Capture(context.RunId, "metric-initial-1", "initial", initialSnapshotResult.Snapshot, 0, 0),
                 cancellationToken);
+            checks.Add(Pass("benchmark-inputs", "The scenario, fixed starting save, content, settings, prompt, schemas, retry policy, and end condition were captured before provider execution."));
             IModelProvider provider = _providerFactory(normalizedInitial)
                 ?? throw new InvalidOperationException("The benchmark provider factory returned no provider.");
             ProviderDecisionExecutionResult decisionResult = await ProviderDecisionExecutor.ExecuteAsync(
@@ -100,37 +101,46 @@ public sealed class Phase07RoadProfitBridgeExtension : IPhase03BridgeExtension
                     ResumeAfterActionHandling: false,
                     ConstraintContext: actionConstraints),
                 cancellationToken);
-            if (!decisionResult.Succeeded ||
-                decisionResult.Decision is null ||
-                decisionResult.ActionResults.Count != 1 ||
-                !string.Equals(decisionResult.ActionResults[0].Status, "accepted", StringComparison.Ordinal))
+            if (decisionResult.Observation is not null)
             {
-                ActionResult? action = decisionResult.ActionResults.Count == 0 ? null : decisionResult.ActionResults[0];
-                return Failure(
-                    decisionResult.Error ?? new ArenaError(
-                        action?.ErrorCode ?? ArenaErrorCodes.ActionConstraintViolation,
-                        action?.Message ?? "The benchmark provider did not produce one accepted route action.",
-                        "The common provider boundary stopped before an accepted benchmark route action.",
-                        false),
-                    "benchmark-action-accepted",
-                    "The benchmark provider did not produce exactly one accepted build_transport_route action while simulation was paused.",
-                    checks);
+                checks.Add(Pass("benchmark-request", "The replay or live provider received the common normalized observation and typed scenario tool surface while simulation was paused."));
+            }
+
+            BenchmarkDecisionOutcome decisionOutcome = BenchmarkDecisionOutcomeClassifier.Classify(decisionResult);
+            if (!decisionOutcome.AcceptedRoute)
+            {
+                ArenaError terminalError = decisionOutcome.TerminalError ?? new ArenaError(
+                    ArenaErrorCodes.ProviderInvalidOutput,
+                    "The benchmark provider did not produce one accepted build_transport_route action.",
+                    "The common provider boundary stopped before an accepted benchmark route action.",
+                    false);
+                if (decisionOutcome.InvalidDecisionCount == 0 && decisionOutcome.ConstraintViolationCount == 0)
+                {
+                    return Failure(terminalError, "benchmark-action-accepted", decisionOutcome.TerminalDetail, checks);
+                }
+
+                // The GameScript remains paused after the provider boundary.
+                // Seal a no-op/constraint outcome from that authoritative state
+                // so the scenario's declared reliability penalty is auditable.
+                paused = false;
+                return await FinalizeBenchmarkAsync(
+                    context,
+                    gameScript,
+                    artifacts,
+                    provider,
+                    inputCapture,
+                    [],
+                    decisionOutcome.InvalidDecisionCount,
+                    decisionOutcome.ConstraintViolationCount,
+                    new BenchmarkTerminalFailure(terminalError, "benchmark-action-accepted", decisionOutcome.TerminalDetail),
+                    simulationAlreadyPaused: true,
+                    checks: checks,
+                    cancellationToken: cancellationToken);
             }
 
             ActionResult acceptedAction = decisionResult.ActionResults[0];
-            if (!string.Equals(decisionResult.Decision.Actions[0].Tool, RoadToolCatalog.BuildTransportRoute, StringComparison.Ordinal))
-            {
-                return Phase03BridgeExtensionResult.Failure(
-                    ArenaErrorCodes.ActionConstraintViolation,
-                    "The initial road-profit scenario requires one accepted build_transport_route action.",
-                    checks);
-            }
-
-            int invalidDecisionCount = decisionResult.ActionResults.Count(result => string.Equals(result.Status, "rejected", StringComparison.Ordinal));
-            int constraintViolationCount = decisionResult.ActionResults.Count(result =>
-                string.Equals(result.ErrorCode, ArenaErrorCodes.ActionConstraintViolation, StringComparison.Ordinal));
-            checks.Add(Pass("benchmark-inputs", "The scenario, fixed starting save, content, settings, prompt, schemas, retry policy, and end condition were captured before provider execution."));
-            checks.Add(Pass("benchmark-request", "The replay or live provider received the common normalized observation and typed scenario tool surface while simulation was paused."));
+            int invalidDecisionCount = decisionOutcome.InvalidDecisionCount;
+            int constraintViolationCount = decisionOutcome.ConstraintViolationCount;
             checks.Add(Pass("benchmark-action-accepted", "ArenaGS accepted one scenario-constrained passenger route project through the normal AdminPort action boundary."));
 
             ArenaError? resumeError = await gameScript.ResumeAsync(context.RequestTimeout, cancellationToken);
@@ -161,7 +171,22 @@ public sealed class Phase07RoadProfitBridgeExtension : IPhase03BridgeExtension
                     }
                 }
 
-                if ((attempt + 1) % MetricSampleInterval == 0)
+                GameProjectState? project = progress.Snapshot.Projects.SingleOrDefault(candidate =>
+                    string.Equals(candidate.ActionId, acceptedAction.ActionId, StringComparison.Ordinal));
+                GameRouteState? route = progress.Snapshot.Routes.SingleOrDefault(candidate =>
+                    string.Equals(candidate.ActionId, acceptedAction.ActionId, StringComparison.Ordinal) &&
+                    candidate.Operational &&
+                    candidate.VehicleIds.Count > 0);
+                GameProjectState? completedProject = project is { State: "completed" } && route is not null
+                    ? project
+                    : null;
+                bool routeCompleted = completedProject is not null;
+
+                // A fast fixed-save route can complete before the normal sample
+                // interval. Capture its terminal progress snapshot as periodic
+                // evidence as well, so every successful benchmark has a real
+                // initial, periodic, and final authoritative metric stream.
+                if ((attempt + 1) % MetricSampleInterval == 0 || routeCompleted)
                 {
                     BenchmarkMetricSnapshot periodic = BenchmarkMetricCollector.Capture(
                         context.RunId,
@@ -174,20 +199,30 @@ public sealed class Phase07RoadProfitBridgeExtension : IPhase03BridgeExtension
                     await artifacts.AppendMetricAsync(periodic, cancellationToken);
                 }
 
-                GameProjectState? project = progress.Snapshot.Projects.SingleOrDefault(candidate =>
-                    string.Equals(candidate.ActionId, acceptedAction.ActionId, StringComparison.Ordinal));
-                GameRouteState? route = progress.Snapshot.Routes.SingleOrDefault(candidate =>
-                    string.Equals(candidate.ActionId, acceptedAction.ActionId, StringComparison.Ordinal) &&
-                    candidate.Operational &&
-                    candidate.VehicleIds.Count > 0);
-                if (project is not null && string.Equals(project.State, "completed", StringComparison.Ordinal) && route is not null)
+                if (completedProject is not null)
                 {
-                    if (project.Spent > project.MaximumBudget)
+                    if (completedProject.Spent > completedProject.MaximumBudget)
                     {
-                        return Phase03BridgeExtensionResult.Failure(
-                            ArenaErrorCodes.ArtifactVerificationFailed,
-                            "ArenaGS completed the benchmark project without within-budget spend evidence.",
-                            checks);
+                        return await FinalizeBenchmarkAsync(
+                            context,
+                            gameScript,
+                            artifacts,
+                            provider,
+                            inputCapture,
+                            periodicMetrics,
+                            invalidDecisionCount,
+                            constraintViolationCount,
+                            new BenchmarkTerminalFailure(
+                                new ArenaError(
+                                    ArenaErrorCodes.ArtifactVerificationFailed,
+                                    "ArenaGS completed the benchmark project without within-budget spend evidence.",
+                                    "The benchmark project exceeded its immutable budget after action acceptance.",
+                                    false),
+                                "benchmark-budget",
+                                "ArenaGS completed the benchmark project without within-budget spend evidence."),
+                            simulationAlreadyPaused: false,
+                            checks: checks,
+                            cancellationToken: cancellationToken);
                     }
 
                     return await FinalizeBenchmarkAsync(
@@ -199,16 +234,34 @@ public sealed class Phase07RoadProfitBridgeExtension : IPhase03BridgeExtension
                         periodicMetrics,
                         invalidDecisionCount,
                         constraintViolationCount,
-                        checks,
-                        cancellationToken);
+                        terminalFailure: null,
+                        simulationAlreadyPaused: false,
+                        checks: checks,
+                        cancellationToken: cancellationToken);
                 }
 
                 if (project is not null && string.Equals(project.State, "failed", StringComparison.Ordinal))
                 {
-                    return Phase03BridgeExtensionResult.Failure(
-                        project.FailureCode ?? ArenaErrorCodes.ActionConstraintViolation,
-                        "ArenaGS safely failed the benchmark road project before it met the declared end condition.",
-                        checks);
+                    return await FinalizeBenchmarkAsync(
+                        context,
+                        gameScript,
+                        artifacts,
+                        provider,
+                        inputCapture,
+                        periodicMetrics,
+                        invalidDecisionCount,
+                        constraintViolationCount,
+                        new BenchmarkTerminalFailure(
+                            new ArenaError(
+                                project.FailureCode ?? ArenaErrorCodes.ActionConstraintViolation,
+                                "ArenaGS safely failed the benchmark road project before it met the declared end condition.",
+                                "The authoritative route project did not satisfy the benchmark end condition.",
+                                false),
+                            "benchmark-objective",
+                            "ArenaGS safely failed the benchmark road project before it met the declared end condition."),
+                        simulationAlreadyPaused: false,
+                        checks: checks,
+                        cancellationToken: cancellationToken);
                 }
 
                 if (attempt + 1 < VerificationPollLimit && !await timer.WaitForNextTickAsync(cancellationToken))
@@ -217,10 +270,26 @@ public sealed class Phase07RoadProfitBridgeExtension : IPhase03BridgeExtension
                 }
             }
 
-            return Phase03BridgeExtensionResult.Failure(
-                ArenaErrorCodes.ActionVerificationTimedOut,
-                "The road-profit benchmark did not reach its declared completed-route end condition before the bounded verification window.",
-                checks);
+            return await FinalizeBenchmarkAsync(
+                context,
+                gameScript,
+                artifacts,
+                provider,
+                inputCapture,
+                periodicMetrics,
+                invalidDecisionCount,
+                constraintViolationCount,
+                new BenchmarkTerminalFailure(
+                    new ArenaError(
+                        ArenaErrorCodes.ActionVerificationTimedOut,
+                        "The road-profit benchmark did not reach its declared completed-route end condition before the bounded verification window.",
+                        "The authoritative route project did not reach its terminal condition before the bounded verification window.",
+                        true),
+                    "benchmark-objective",
+                    "The road-profit benchmark did not reach its declared completed-route end condition before the bounded verification window."),
+                simulationAlreadyPaused: false,
+                checks: checks,
+                cancellationToken: cancellationToken);
         }
         catch (ArgumentException exception)
         {
@@ -252,16 +321,21 @@ public sealed class Phase07RoadProfitBridgeExtension : IPhase03BridgeExtension
         ObservationArtifactWriter artifacts,
         IModelProvider provider,
         BenchmarkInputCapture inputCapture,
-        IReadOnlyList<BenchmarkMetricSnapshot> periodicMetrics,
+        List<BenchmarkMetricSnapshot> periodicMetrics,
         int invalidDecisionCount,
         int constraintViolationCount,
+        BenchmarkTerminalFailure? terminalFailure,
+        bool simulationAlreadyPaused,
         List<Phase03BridgeCheck> checks,
         CancellationToken cancellationToken)
     {
-        ArenaError? pauseError = await gameScript.PauseAsync(context.RequestTimeout, cancellationToken);
-        if (pauseError is not null)
+        if (!simulationAlreadyPaused)
         {
-            return Failure(pauseError, "benchmark-final-pause", "The simulation could not be paused before final authoritative metric capture.", checks);
+            ArenaError? pauseError = await gameScript.PauseAsync(context.RequestTimeout, cancellationToken);
+            if (pauseError is not null)
+            {
+                return Failure(pauseError, "benchmark-final-pause", "The simulation could not be paused before final authoritative metric capture.", checks);
+            }
         }
 
         bool finalPaused = true;
@@ -280,13 +354,17 @@ public sealed class Phase07RoadProfitBridgeExtension : IPhase03BridgeExtension
                 finalSnapshotResult.Snapshot,
                 invalidDecisionCount,
                 constraintViolationCount);
-            if (!AreObjectivesSatisfied(finalMetrics.Metrics) ||
-                !string.Equals(_scenario.Scenario.EndCondition.Type, "goal_completed", StringComparison.Ordinal))
+            if (periodicMetrics.Count == 0)
             {
-                return Phase03BridgeExtensionResult.Failure(
-                    ArenaErrorCodes.ArtifactVerificationFailed,
-                    "The benchmark route completed without satisfying the scenario's declared goal-completed end condition.",
-                    checks);
+                BenchmarkMetricSnapshot periodic = BenchmarkMetricCollector.Capture(
+                    context.RunId,
+                    "metric-periodic-1",
+                    "periodic",
+                    finalSnapshotResult.Snapshot,
+                    invalidDecisionCount,
+                    constraintViolationCount);
+                periodicMetrics.Add(periodic);
+                await artifacts.AppendMetricAsync(periodic, cancellationToken);
             }
 
             await artifacts.AppendMetricAsync(finalMetrics, cancellationToken);
@@ -359,9 +437,37 @@ public sealed class Phase07RoadProfitBridgeExtension : IPhase03BridgeExtension
                     checks);
             }
 
-            checks.Add(Pass("benchmark-objective", "The scenario's operational-route objective and goal-completed end condition were satisfied from authoritative GameScript metrics."));
             checks.Add(Pass("benchmark-score", "The pure road-profit scorer wrote a detailed score breakdown from periodic and final authoritative metrics only."));
             checks.Add(Pass("benchmark-manifest", "The final save, logs, metrics, score, and every benchmark-defining input were hash-sealed and independently verified."));
+            if (terminalFailure is not null)
+            {
+                checks.Add(new Phase03BridgeCheck(
+                    terminalFailure.CheckId,
+                    false,
+                    terminalFailure.Error.Code,
+                    terminalFailure.Detail));
+                return Phase03BridgeExtensionResult.Failure(
+                    terminalFailure.Error.Code,
+                    terminalFailure.Detail,
+                    checks);
+            }
+
+            if (!AreObjectivesSatisfied(finalMetrics.Metrics) ||
+                !string.Equals(_scenario.Scenario.EndCondition.Type, "goal_completed", StringComparison.Ordinal))
+            {
+                const string detail = "The benchmark route completed without satisfying the scenario's declared goal-completed end condition.";
+                checks.Add(new Phase03BridgeCheck(
+                    "benchmark-objective",
+                    false,
+                    ArenaErrorCodes.ArtifactVerificationFailed,
+                    detail));
+                return Phase03BridgeExtensionResult.Failure(
+                    ArenaErrorCodes.ArtifactVerificationFailed,
+                    detail,
+                    checks);
+            }
+
+            checks.Add(Pass("benchmark-objective", "The scenario's operational-route objective and goal-completed end condition were satisfied from authoritative GameScript metrics."));
             return Phase03BridgeExtensionResult.Success("The immutable Phase 07 road-profit benchmark completed and its evidence artifacts verified.", checks);
         }
         finally
@@ -458,4 +564,9 @@ public sealed class Phase07RoadProfitBridgeExtension : IPhase03BridgeExtension
     }
 
     private static Phase03BridgeCheck Pass(string id, string detail) => new(id, true, null, detail);
+
+    private sealed record BenchmarkTerminalFailure(
+        ArenaError Error,
+        string CheckId,
+        string Detail);
 }

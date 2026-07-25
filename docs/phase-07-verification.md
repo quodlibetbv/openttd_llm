@@ -45,6 +45,8 @@ Get-Content (Join-Path $run.FullName 'metrics.ndjson')
 
 The successful bridge result contains `benchmark-inputs`, `benchmark-request`, `benchmark-action-accepted`, `benchmark-objective`, `benchmark-score`, and `benchmark-manifest` checks. The manifest must list hashes for the starting save, content, settings, scenario, schemas, prompt, tool contract, retry policy, end condition, public streams, final save, final metrics, and score.
 
+If a provider returns malformed, empty, objective-incompatible output, or an action is rejected by the scenario constraints after an authoritative snapshot was obtained, the run still seals its periodic/final metrics, score, final save, and manifest. The declared invalid-decision or constraint-violation penalty is visible in `final-metrics.json` and `score.json`, but `bridge-result.json` remains unsuccessful. Treat that as a failed attempt in comparison statistics, not as a completed benchmark score. A provider transport failure that never reaches a valid decision is recorded as a failure without inventing a scenario reliability penalty.
+
 Verify the sealed evidence without starting OpenTTD or contacting a provider:
 
 ```powershell
@@ -70,7 +72,7 @@ Exercise the two independent scenario-constraint layers:
 pwsh ./scripts/ttd-arena.ps1 road-constraint-smoke
 ```
 
-The command first creates one valid route project while paused, then attempts a second route. The orchestrator records its pre-dispatch rejection in `actions.ndjson`; a separately dispatched trusted test action carries the same constraint context, and ArenaGS must reject it with `ARENA-ACTION-CONSTRAINT-VIOLATION` without creating a second project. The result includes `constraint-orchestrator` and `constraint-gamescript` checks.
+The command first proves a deliberately restricted scenario tool allowlist at both layers by rejecting a constrained `wait` action, then creates one valid route project while paused and attempts a second route. The orchestrator records each pre-dispatch rejection in `actions.ndjson`; separately dispatched trusted test actions carry the matching constraint context, and ArenaGS must reject them with `ARENA-ACTION-CONSTRAINT-VIOLATION`. The route rejection must create no second project. The result includes `constraint-tool-orchestrator`, `constraint-tool-gamescript`, `constraint-orchestrator`, and `constraint-gamescript` checks.
 
 ## Opt-in live provider benchmark
 

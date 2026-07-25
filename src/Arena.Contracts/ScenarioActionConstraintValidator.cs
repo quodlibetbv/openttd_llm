@@ -40,6 +40,7 @@ public static class ScenarioActionConstraintValidator
         {
             RoadToolCatalog.BuildTransportRoute => ValidateRouteBuild(action.Arguments, constraints, availableBudget),
             RoadToolCatalog.ExpandRoute or RoadToolCatalog.ReplaceVehicles => ValidatePurchaseBudget(action.Arguments, constraints, availableBudget),
+            RoadToolCatalog.RepayLoan => ValidateLoanRepayment(action.Arguments, availableBudget),
             _ => RoadActionValidationResult.Valid,
         };
     }
@@ -74,6 +75,11 @@ public static class ScenarioActionConstraintValidator
             ? RoadActionValidationResult.Valid
             : RoadActionValidationResult.Invalid("The fleet purchase exceeds the scenario's cash reserve or project-budget constraint.");
     }
+
+    private static RoadActionValidationResult ValidateLoanRepayment(JsonElement arguments, long availableBudget) =>
+        TryGetLong(arguments, "amount", out long amount) && amount <= availableBudget
+            ? RoadActionValidationResult.Valid
+            : RoadActionValidationResult.Invalid("The loan repayment would breach the scenario cash reserve.");
 
     private static bool IsValidContext(ScenarioActionConstraintContext constraints) =>
         ProtocolEnvelopeValidator.IsIdentifier(constraints.ScenarioId) &&

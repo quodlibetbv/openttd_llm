@@ -33,8 +33,12 @@ export function validateOpenTtdPackages() {
       !/PROTOCOL_VERSION = "1\.0"/.test(gameMain) ||
       !/function ReplayLedgerResult\(/.test(gameMain) ||
       !/function AcceptChunk\(/.test(gameMain) ||
-      !/ARENA-PROTOCOL-CHUNK-TIMEOUT/.test(gameMain)) {
-    errors.push("ArenaGS must expose the Phase 03 persisted AdminPort protocol boundary.");
+      !/ARENA-PROTOCOL-CHUNK-TIMEOUT/.test(gameMain) ||
+      !/function IsValidScenarioConstraintContext\(/.test(gameMain) ||
+      !/if \(action\.rawin\("constraint_context"\) && !this\.ScenarioAllowsTool\(action\)\)/.test(gameMain) ||
+      !/action\.tool == "repay_loan" &&\s*GSCompany\.GetBankBalance\(company_id\) - amount < action\.constraint_context\.minimum_cash_reserve/.test(gameMain) ||
+      !/quarterly_expenses = this\.NonNegative\(-GSCompany\.GetQuarterlyExpenses\(company_id, GSCompany\.CURRENT_QUARTER\)\)/.test(gameMain)) {
+    errors.push("ArenaGS must expose the Phase 03-07 persisted AdminPort and scenario-constraint boundary.");
   }
 
   if (!/class ModelProxyAIInfo extends AIInfo/.test(aiInfo) || !/RegisterAI\(ModelProxyAIInfo\(\)\);/.test(aiInfo)) {
@@ -70,6 +74,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
 
     process.exitCode = 1;
   } else {
-    console.log("OpenTTD package metadata is valid for Phases 03-06");
+    console.log("OpenTTD package metadata is valid for Phases 03-07");
   }
 }
