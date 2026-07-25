@@ -2,6 +2,10 @@
 
 This guide verifies the implemented observation, provider, and road-executor boundaries on the supported Windows host. It does not claim a scored benchmark, recording, overlay, or camera workflow; those are later phases.
 
+## Acceptance status
+
+Phases 04–06 are complete. The supported Windows verification evidence includes provider-independent observation replay, deterministic replay-road construction and recovery checks, save/load checks across every project stage, and an opt-in DeepSeek V4-Flash road smoke. The live smoke produced a schema-valid public decision, one typed `build_transport_route` action, and an `ARENA-ROUTE-OPERATING` event. Its decision, action, provider-usage, observation, and event artifacts stay in the ignored per-run directory; they are not committed.
+
 ## Preconditions
 
 Bootstrap the repository-local OpenTTD runtime and pass the relevant setup checks first:

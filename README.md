@@ -4,7 +4,7 @@ OpenTTD Model Arena is a Windows-first, hands-off benchmark and video-production
 
 ## Current status
 
-Phases 00–03 are complete. The Phase 04–06 command surface now adds canonical authoritative observations, replayable model decisions, a provider-neutral DeepSeek adapter, and deterministic road-route execution over the authenticated AdminPort bridge. The provider-free replay checks can be run on a prepared Windows host. The final live-provider acceptance proof is deliberately separate: it requires a user-configured Credential Manager reference and an explicit DeepSeek network request. Recording, scoring, and benchmark scenarios remain later phases.
+Phases 00–06 are complete. Phase 04–06 add canonical authoritative observations, replayable model decisions, a provider-neutral DeepSeek V4 adapter, and deterministic road-route execution over the authenticated AdminPort bridge. Both provider-free replay checks and the opt-in live-provider road acceptance have been verified on a prepared Windows host. Recording, scoring, and benchmark scenarios remain later phases.
 
 ## Document map
 
