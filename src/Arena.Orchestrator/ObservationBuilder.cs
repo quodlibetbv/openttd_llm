@@ -224,6 +224,7 @@ public static class ObservationBuilder
                     QuarterlyIncome = gameState.Company.QuarterlyIncome,
                     QuarterlyExpenses = gameState.Company.QuarterlyExpenses,
                     QuarterlyProfit = gameState.Company.QuarterlyIncome - gameState.Company.QuarterlyExpenses,
+                    QuarterlyCargoDelivered = Math.Max(0, gameState.Company.QuarterlyCargoDelivered),
                     CompanyValue = gameState.Company.CompanyValue,
                     PerformanceRating = Math.Max(0, gameState.Company.PerformanceRating),
                 },

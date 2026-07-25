@@ -27,14 +27,19 @@ Use this illustrative JSON shape only as a field-format example; replace every i
     private const string UserPayloadContract =
         "decision_id,observation_sha256,observation,available_tools,tool_contract_version,tool_contracts,remaining_model_calls,remaining_output_tokens,maximum_actions,response_contract=model-decision.v1 json";
 
-    private static readonly string ToolContractsCanonicalJson = CanonicalJson.SerializeToString(
-        JsonSerializer.SerializeToElement(RoadToolPromptCatalog.AllContracts));
+    private static readonly string ToolContractsCanonicalJson = RoadToolPromptCatalog.CanonicalJson;
+
+    /// <summary>
+    /// Exact public prompt-definition bytes pinned into every Phase 07 run
+    /// manifest. It contains no credentials or provider response data.
+    /// </summary>
+    public static string ManifestText { get; } =
+        SystemTemplate + "\n" + RoadToolPromptCatalog.Version + "\n" +
+        ToolContractsCanonicalJson + "\n" + SchemaCorrectionInstruction + "\n" +
+        UserPayloadContract;
 
     public static string Sha256 { get; } = Convert.ToHexString(
-        SHA256.HashData(Encoding.UTF8.GetBytes(
-            SystemTemplate + "\n" + RoadToolPromptCatalog.Version + "\n" +
-            ToolContractsCanonicalJson + "\n" + SchemaCorrectionInstruction + "\n" +
-            UserPayloadContract))).ToLowerInvariant();
+        SHA256.HashData(Encoding.UTF8.GetBytes(ManifestText))).ToLowerInvariant();
 
     public static string CreateSystemMessage(ModelRequest request)
     {

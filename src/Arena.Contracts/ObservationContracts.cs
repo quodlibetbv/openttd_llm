@@ -31,6 +31,9 @@ public sealed record GameCompanyState
     [JsonPropertyName("quarterly_expenses")]
     public required long QuarterlyExpenses { get; init; }
 
+    [JsonPropertyName("quarterly_cargo_delivered")]
+    public required long QuarterlyCargoDelivered { get; init; }
+
     [JsonPropertyName("company_value")]
     public required long CompanyValue { get; init; }
 
@@ -296,6 +299,9 @@ public sealed record ObservationFinancialSummary
 
     [JsonPropertyName("quarterly_profit")]
     public required long QuarterlyProfit { get; init; }
+
+    [JsonPropertyName("quarterly_cargo_delivered")]
+    public required long QuarterlyCargoDelivered { get; init; }
 
     [JsonPropertyName("company_value")]
     public required long CompanyValue { get; init; }

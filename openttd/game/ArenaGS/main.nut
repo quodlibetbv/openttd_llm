@@ -515,6 +515,7 @@ class ArenaGS extends GSController {
                 loan = 0,
                 quarterly_income = 0,
                 quarterly_expenses = 0,
+                quarterly_cargo_delivered = 0,
                 company_value = 0,
                 performance_rating = 0,
             };
@@ -574,6 +575,7 @@ class ArenaGS extends GSController {
             loan = GSCompany.GetLoanAmount(),
             quarterly_income = GSCompany.GetQuarterlyIncome(company_id, GSCompany.CURRENT_QUARTER),
             quarterly_expenses = GSCompany.GetQuarterlyExpenses(company_id, GSCompany.CURRENT_QUARTER),
+            quarterly_cargo_delivered = this.NonNegative(GSCompany.GetQuarterlyCargoDelivered(company_id, GSCompany.CURRENT_QUARTER)),
             company_value = GSCompany.GetQuarterlyCompanyValue(company_id, GSCompany.CURRENT_QUARTER),
             performance_rating = rating < 0 ? 0 : rating,
         };
@@ -927,15 +929,111 @@ class ArenaGS extends GSController {
     function ParseActionRequest(envelope) {
         local payload = envelope.payload;
         local fields = ["action_id", "run_id", "decision_id", "correlation_id", "idempotency_key", "tool", "arguments"];
-        if (!this.HasExactFields(payload, fields) ||
+        local constrained_fields = ["action_id", "run_id", "decision_id", "correlation_id", "idempotency_key", "tool", "arguments", "constraint_context"];
+        if ((!this.HasExactFields(payload, fields) && !this.HasExactFields(payload, constrained_fields)) ||
             typeof payload.action_id != "string" || !this.IsIdentifier(payload.action_id) ||
             typeof payload.run_id != "string" || payload.run_id != envelope.run_id ||
             typeof payload.decision_id != "string" || !this.IsIdentifier(payload.decision_id) ||
             typeof payload.correlation_id != "string" || payload.correlation_id != envelope.correlation_id ||
             typeof payload.idempotency_key != "string" || payload.idempotency_key != envelope.idempotency_key ||
             typeof payload.tool != "string" || !this.IsKnownRoadTool(payload.tool) ||
+            (payload.rawin("constraint_context") && !this.IsValidScenarioConstraintContext(payload.constraint_context)) ||
             typeof payload.arguments != "table" || !this.IsBoundedValue(payload.arguments, 0)) return null;
         return payload;
+    }
+
+    /* Scenario constraints are supplied only by the trusted orchestrator as
+     * part of a typed action envelope. The model never sees or controls this
+     * context; ArenaGS persists the cash reserve on each project and enforces
+     * it again before every native construction or vehicle purchase. */
+    function IsValidScenarioConstraintContext(value) {
+        local fields = [
+            "scenario_id", "scenario_version", "scenario_sha256", "minimum_cash_reserve",
+            "per_project_budget", "maximum_active_projects", "allowed_modes", "allowed_cargo", "allowed_tools",
+        ];
+        if (!this.HasExactFields(value, fields) ||
+            typeof value.scenario_id != "string" || !this.IsIdentifier(value.scenario_id) ||
+            typeof value.scenario_version != "string" || !this.IsScenarioVersion(value.scenario_version) ||
+            typeof value.scenario_sha256 != "string" || !this.IsSha256(value.scenario_sha256) ||
+            typeof value.minimum_cash_reserve != "integer" || value.minimum_cash_reserve < 0 ||
+            typeof value.per_project_budget != "integer" || value.per_project_budget < 1 ||
+            typeof value.maximum_active_projects != "integer" || value.maximum_active_projects < 1 || value.maximum_active_projects > 16 ||
+            !this.IsScenarioStringArray(value.allowed_modes, 8, 32) ||
+            !this.IsScenarioStringArray(value.allowed_cargo, 8, 32) ||
+            !this.IsScenarioToolArray(value.allowed_tools)) return false;
+        return true;
+    }
+
+    function IsScenarioVersion(value) {
+        if (value.len() < 5 || value.len() > 32) return false;
+        local dots = 0;
+        for (local index = 0; index < value.len(); index++) {
+            local character = value[index];
+            if (character >= 48 && character <= 57) continue;
+            if (character == 46) {
+                dots += 1;
+                continue;
+            }
+            return false;
+        }
+        return dots == 2;
+    }
+
+    function IsSha256(value) {
+        if (value.len() != 64) return false;
+        for (local index = 0; index < value.len(); index++) {
+            local character = value[index];
+            local digit = character >= 48 && character <= 57;
+            local lower_hex = character >= 97 && character <= 102;
+            if (!digit && !lower_hex) return false;
+        }
+        return true;
+    }
+
+    function IsScenarioStringArray(values, maximum, maximum_length) {
+        if (typeof values != "array" || values.len() < 1 || values.len() > maximum) return false;
+        local seen = {};
+        foreach (value in values) {
+            if (typeof value != "string" || value.len() < 1 || value.len() > maximum_length || seen.rawin(value)) return false;
+            seen[value] <- true;
+        }
+        return true;
+    }
+
+    function IsScenarioToolArray(values) {
+        if (!this.IsScenarioStringArray(values, 11, 80)) return false;
+        foreach (value in values) if (!this.IsKnownRoadTool(value)) return false;
+        return true;
+    }
+
+    function ScenarioAllowsTool(action) {
+        if (!action.rawin("constraint_context")) return true;
+        foreach (tool in action.constraint_context.allowed_tools) if (tool == action.tool) return true;
+        return false;
+    }
+
+    function ScenarioAllowsValue(values, value) {
+        foreach (allowed in values) if (allowed == value) return true;
+        return false;
+    }
+
+    function ActiveProjectCount() {
+        local count = 0;
+        foreach (project in this._projects) {
+            if (typeof project == "table" && project.rawin("state") && project.state != "completed" && project.state != "failed") count += 1;
+        }
+        return count;
+    }
+
+    function ScenarioBudgetError(action, company_id, requested_budget, mode = null, cargo = null) {
+        if (!action.rawin("constraint_context")) return null;
+        local constraints = action.constraint_context;
+        if (!this.ScenarioAllowsTool(action)) return "The selected tool is not allowed by the immutable scenario.";
+        if (requested_budget > constraints.per_project_budget) return "The declared action budget exceeds the scenario project ceiling.";
+        if (GSCompany.GetBankBalance(company_id) - requested_budget < constraints.minimum_cash_reserve) return "The declared action budget would breach the scenario cash reserve.";
+        if (mode != null && !this.ScenarioAllowsValue(constraints.allowed_modes, mode)) return "The selected transport mode is not allowed by the immutable scenario.";
+        if (cargo != null && !this.ScenarioAllowsValue(constraints.allowed_cargo, cargo)) return "The selected cargo is not allowed by the immutable scenario.";
+        return null;
     }
 
     function HasExactFields(value, fields) {
@@ -1101,6 +1199,17 @@ class ArenaGS extends GSController {
             return;
         }
 
+        if (action.rawin("constraint_context") && this.ActiveProjectCount() >= action.constraint_context.maximum_active_projects) {
+            this.RecordAndSend(envelope, "action_result", this.ActionResultPayload(action, "rejected", "ARENA-ACTION-CONSTRAINT-VIOLATION", "The scenario does not allow another active route project.", null));
+            return;
+        }
+
+        local scenario_error = this.ScenarioBudgetError(action, company_id, request.maximum_budget, request.mode, request.cargo);
+        if (scenario_error != null) {
+            this.RecordAndSend(envelope, "action_result", this.ActionResultPayload(action, "rejected", "ARENA-ACTION-CONSTRAINT-VIOLATION", scenario_error, null));
+            return;
+        }
+
         if (GSCompany.GetBankBalance(company_id) < request.maximum_budget) {
             this.RecordAndSend(envelope, "action_result", this.ActionResultPayload(action, "rejected", "ARENA-ACTION-INSUFFICIENT-FUNDS", "The declared route budget exceeds the current company cash.", null));
             return;
@@ -1118,6 +1227,7 @@ class ArenaGS extends GSController {
             cargo = "passengers",
             initial_vehicle_count = request.initial_vehicle_count,
             maximum_budget = request.maximum_budget,
+            minimum_cash_reserve = action.rawin("constraint_context") ? action.constraint_context.minimum_cash_reserve : 0,
             spent = 0,
             state = "proposed",
             vehicle_ids = [],
@@ -1180,11 +1290,22 @@ class ArenaGS extends GSController {
             return;
         }
 
+        if (action.rawin("constraint_context") && !this.ScenarioAllowsTool(action)) {
+            this.RecordAndSend(envelope, "action_result", this.ActionResultPayload(action, "rejected", "ARENA-ACTION-CONSTRAINT-VIOLATION", "The selected tool is not allowed by the immutable scenario.", null));
+            return;
+        }
+
         if (action.tool != "reduce_route") {
             local purchase_count = action.tool == "expand_route" ? request.vehicle_count - current_count : request.vehicle_count;
             local preflight = this.EstimateFleetPurchase(project, purchase_count);
             if (!preflight.success) {
                 this.RecordAndSend(envelope, "action_result", this.ActionResultPayload(action, "rejected", "ARENA-ACTION-VEHICLE-UNSUITABLE", "The route does not expose a compatible vehicle purchase plan for the requested fleet change.", null));
+                return;
+            }
+
+            local scenario_error = this.ScenarioBudgetError(action, project.company_id, request.maximum_budget);
+            if (scenario_error != null) {
+                this.RecordAndSend(envelope, "action_result", this.ActionResultPayload(action, "rejected", "ARENA-ACTION-CONSTRAINT-VIOLATION", scenario_error, null));
                 return;
             }
 
@@ -1201,6 +1322,7 @@ class ArenaGS extends GSController {
             tool = action.tool,
             target_count = request.vehicle_count,
             maximum_budget = action.tool == "reduce_route" ? 0 : request.maximum_budget,
+            minimum_cash_reserve = action.rawin("constraint_context") ? action.constraint_context.minimum_cash_reserve : (project.rawin("minimum_cash_reserve") ? project.minimum_cash_reserve : 0),
             spent = 0,
             removal_vehicle_ids = [],
             depot_requests = {},
@@ -1530,7 +1652,7 @@ class ArenaGS extends GSController {
     function CanSpendFleetAdjustment(project, adjustment, expected_cost) {
         return typeof expected_cost == "integer" && expected_cost >= 0 &&
             adjustment.spent + expected_cost <= adjustment.maximum_budget &&
-            GSCompany.GetBankBalance(project.company_id) >= expected_cost;
+            GSCompany.GetBankBalance(project.company_id) >= expected_cost + (adjustment.rawin("minimum_cash_reserve") ? adjustment.minimum_cash_reserve : 0);
     }
 
     function RemoveVehicleFromProject(project, vehicle_id) {
@@ -2125,12 +2247,13 @@ class ArenaGS extends GSController {
     function CanSpend(project, expected_cost) {
         return typeof expected_cost == "integer" && expected_cost >= 0 &&
             project.spent + expected_cost <= project.maximum_budget &&
-            GSCompany.GetBankBalance(project.company_id) >= expected_cost;
+            GSCompany.GetBankBalance(project.company_id) >= expected_cost + (project.rawin("minimum_cash_reserve") ? project.minimum_cash_reserve : 0);
     }
 
     function RecordActualSpend(project, raw_cost, expected_cost) {
         local actual_cost = this.AbsoluteCost(raw_cost);
-        if (actual_cost > expected_cost || project.spent + actual_cost > project.maximum_budget) return false;
+        if (actual_cost > expected_cost || project.spent + actual_cost > project.maximum_budget ||
+            GSCompany.GetBankBalance(project.company_id) < (project.rawin("minimum_cash_reserve") ? project.minimum_cash_reserve : 0)) return false;
         project.spent += actual_cost;
         return true;
     }

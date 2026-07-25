@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace OpenTtd.ModelArena.Contracts;
 
@@ -110,6 +112,12 @@ public static class RoadToolPromptCatalog
     }
 
     public static IReadOnlyDictionary<string, ModelToolContract> AllContracts => Contracts;
+
+    public static string CanonicalJson { get; } = OpenTtd.ModelArena.Contracts.CanonicalJson.SerializeToString(
+        JsonSerializer.SerializeToElement(AllContracts));
+
+    public static string Sha256 { get; } = Convert.ToHexString(
+        SHA256.HashData(Encoding.UTF8.GetBytes(CanonicalJson))).ToLowerInvariant();
 
     private static ModelToolContract NoArguments(string description) => new(description, []);
 

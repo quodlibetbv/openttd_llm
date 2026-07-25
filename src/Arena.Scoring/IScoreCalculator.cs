@@ -8,6 +8,6 @@ public interface IScoreCalculator
 }
 
 public sealed record ScoreInput(
-    BenchmarkGoal Goal,
-    IReadOnlyDictionary<string, decimal> FinalMetrics,
-    IReadOnlyDictionary<string, decimal> PeriodicMetrics);
+    BenchmarkScenario Scenario,
+    BenchmarkMetricSnapshot FinalMetrics,
+    IReadOnlyList<BenchmarkMetricSnapshot> PeriodicMetrics);

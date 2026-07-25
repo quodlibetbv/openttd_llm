@@ -16,6 +16,7 @@ public sealed class ObservationArtifactWriter : IDisposable
     public const string DecisionsFileName = "decisions.ndjson";
     public const string ProviderUsageFileName = "provider-usage.ndjson";
     public const string ActionsFileName = "actions.ndjson";
+    public const string MetricsFileName = "metrics.ndjson";
     private static readonly UTF8Encoding Utf8WithoutBom = new(false);
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly HashSet<string> _persistedEventIds = new(StringComparer.Ordinal);
@@ -54,6 +55,8 @@ public sealed class ObservationArtifactWriter : IDisposable
 
     public string ActionsPath => _paths.Resolve(ActionsFileName);
 
+    public string MetricsPath => _paths.Resolve(MetricsFileName);
+
     private IEnumerable<string> ArtifactPaths =>
     [
         ObservationsPath,
@@ -61,6 +64,7 @@ public sealed class ObservationArtifactWriter : IDisposable
         DecisionsPath,
         ProviderUsagePath,
         ActionsPath,
+        MetricsPath,
     ];
 
     public Task AppendObservationAsync(ObservationBuildRecord record, CancellationToken cancellationToken)
@@ -135,6 +139,18 @@ public sealed class ObservationArtifactWriter : IDisposable
         ArgumentNullException.ThrowIfNull(record);
         EnsureRun(record.RunId, nameof(record));
         return AppendAsync(ActionsPath, record, cancellationToken);
+    }
+
+    public Task AppendMetricAsync(BenchmarkMetricSnapshot snapshot, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        EnsureRun(snapshot.RunId, nameof(snapshot));
+        if (!string.Equals(snapshot.SchemaVersion, ContractVersions.MetricV1, StringComparison.Ordinal))
+        {
+            throw new ArgumentException("The metric snapshot does not use the supported metric contract.", nameof(snapshot));
+        }
+
+        return AppendAsync(MetricsPath, snapshot, cancellationToken);
     }
 
     public void Dispose()

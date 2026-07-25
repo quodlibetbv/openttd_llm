@@ -11,7 +11,8 @@ public sealed record ProviderDecisionExecutionOptions(
     TimeSpan RequestTimeout,
     int? MaximumSchemaCorrectionRetries = null,
     int MaximumActions = 8,
-    bool ResumeAfterActionHandling = true)
+    bool ResumeAfterActionHandling = true,
+    ScenarioActionConstraintContext? ConstraintContext = null)
 {
     public void Validate()
     {
@@ -197,11 +198,23 @@ public sealed class ProviderDecisionExecutor
         for (int index = 0; index < decision.Actions.Count; index++)
         {
             ModelAction modelAction = decision.Actions[index];
-            ActionRequest actionRequest = CreateActionRequest(request.RunId, decision.DecisionId, modelAction, index);
+            ActionRequest actionRequest = CreateActionRequest(
+                request.RunId,
+                decision.DecisionId,
+                modelAction,
+                index,
+                options.ConstraintContext);
             RoadActionValidationResult validation = RoadActionValidator.Validate(
                 modelAction,
                 observation.Snapshot,
                 request.AvailableTools.ToHashSet(StringComparer.Ordinal));
+            if (validation.IsValid)
+            {
+                validation = ScenarioActionConstraintValidator.Validate(
+                    modelAction,
+                    observation.Snapshot,
+                    options.ConstraintContext);
+            }
             ActionResult actionResult;
             if (!validation.IsValid)
             {
@@ -279,7 +292,8 @@ public sealed class ProviderDecisionExecutor
         string runId,
         string decisionId,
         ModelAction action,
-        int index)
+        int index,
+        ScenarioActionConstraintContext? constraintContext)
     {
         string suffix = $"-{index + 1}";
         string prefix = decisionId.Length > 110 ? decisionId[..110] : decisionId;
@@ -294,6 +308,7 @@ public sealed class ProviderDecisionExecutor
             IdempotencyKey = "idempotency-" + prefix + suffix,
             Tool = action.Tool,
             Arguments = action.Arguments.Clone(),
+            ConstraintContext = constraintContext,
         };
     }
 
