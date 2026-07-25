@@ -60,7 +60,9 @@ The road executor persists every surveyed path edge as a typed native link. It
 uses ordinary road edges first; when ordinary progress toward the target is
 blocked, it makes a bounded, deterministic set of native bridge/tunnel
 test-mode probes (maximum 24-tile span and 16 special-link probes per search
-node). A legacy road-only saved project is migrated only when every stored edge
+node). Each special link must have a straight ordinary-road approach and exit;
+the search rejects turns across bridge or tunnel ramps because those native
+commands can replace perpendicular road halves. A legacy road-only saved project is migrated only when every stored edge
 is adjacent; otherwise it safely enters recovery rather than guessing topology.
 
 The stock replay smoke route does not deliberately require an obstacle link, so

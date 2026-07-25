@@ -2194,6 +2194,16 @@ class ArenaGS extends GSController {
 
     function RoadTransitions(project, from) {
         local transitions = [];
+        /* A native bridge or tunnel creates straight road halves at its ends.
+         * Do not let the route turn across a ramp: doing so can overwrite the
+         * perpendicular approach road after the special link is built. */
+        local required_special_exit = this.RequiredSpecialExit(project, from);
+        if (required_special_exit != null) {
+            local continuation = this.OrdinaryRoadTransition(from, required_special_exit);
+            if (continuation != null) transitions.append(continuation);
+            return transitions;
+        }
+
         local current_distance = this.PathHeuristic(from, project.search_target);
         local has_progress_toward_target = false;
 
@@ -2273,7 +2283,8 @@ class ArenaGS extends GSController {
         if (!GSMap.IsValidTile(to) || to == from) return null;
         local span = GSMap.DistanceManhattan(from, to);
         if (span < 2 || span > ArenaGS.MAX_SPECIAL_LINK_SPAN ||
-            this.PathHeuristic(to, project.search_target) >= this.PathHeuristic(from, project.search_target)) return null;
+            this.PathHeuristic(to, project.search_target) >= this.PathHeuristic(from, project.search_target) ||
+            !this.HasAlignedSpecialApproach(project, from, to)) return null;
         local estimate = this.EstimateTunnel(from);
         if (!estimate.success || estimate.to != to) return null;
         return { to = to, cost = span, link = { kind = "tunnel" } };
@@ -2299,6 +2310,7 @@ class ArenaGS extends GSController {
                 if (probes >= maximum_probes) break;
                 local to = GSMap.GetTileIndex(x + direction.dx * span, y + direction.dy * span);
                 if (!GSMap.IsValidTile(to) || this.PathHeuristic(to, project.search_target) >= this.PathHeuristic(from, project.search_target)) continue;
+                if (!this.HasAlignedSpecialApproach(project, from, to)) continue;
                 probes += 1;
                 local estimate = this.EstimatePreferredBridge(from, to);
                 if (!estimate.success) continue;
@@ -2311,6 +2323,48 @@ class ArenaGS extends GSController {
         }
 
         return result;
+    }
+
+    function HasAlignedSpecialApproach(project, from, to) {
+        if (!project.rawin("search_parent") || !project.search_parent.rawin(from) ||
+            !GSMap.IsValidTile(from) || !GSMap.IsValidTile(to)) return false;
+        local parent_entry = project.search_parent[from];
+        if (typeof parent_entry != "table" || !parent_entry.rawin("tile") || !parent_entry.rawin("link") ||
+            !GSMap.IsValidTile(parent_entry.tile) || !this.IsPersistedPathLink(parent_entry.link) || parent_entry.link.kind != "road") return false;
+
+        local from_x = GSMap.GetTileX(from);
+        local from_y = GSMap.GetTileY(from);
+        local to_x = GSMap.GetTileX(to);
+        local to_y = GSMap.GetTileY(to);
+        local parent_x = GSMap.GetTileX(parent_entry.tile);
+        local parent_y = GSMap.GetTileY(parent_entry.tile);
+        if (to_x > from_x) return parent_x == from_x - 1 && parent_y == from_y;
+        if (to_x < from_x) return parent_x == from_x + 1 && parent_y == from_y;
+        if (to_y > from_y) return parent_y == from_y - 1 && parent_x == from_x;
+        if (to_y < from_y) return parent_y == from_y + 1 && parent_x == from_x;
+        return false;
+    }
+
+    function RequiredSpecialExit(project, from) {
+        if (!project.rawin("search_parent") || !project.search_parent.rawin(from) || !GSMap.IsValidTile(from)) return null;
+        local parent_entry = project.search_parent[from];
+        if (typeof parent_entry != "table" || !parent_entry.rawin("tile") || !parent_entry.rawin("link") ||
+            !GSMap.IsValidTile(parent_entry.tile) || !this.IsPersistedPathLink(parent_entry.link) ||
+            (parent_entry.link.kind != "bridge" && parent_entry.link.kind != "tunnel")) return null;
+
+        local from_x = GSMap.GetTileX(from);
+        local from_y = GSMap.GetTileY(from);
+        local parent_x = GSMap.GetTileX(parent_entry.tile);
+        local parent_y = GSMap.GetTileY(parent_entry.tile);
+        local exit_x = from_x;
+        local exit_y = from_y;
+        if (from_x > parent_x) exit_x += 1;
+        else if (from_x < parent_x) exit_x -= 1;
+        else if (from_y > parent_y) exit_y += 1;
+        else if (from_y < parent_y) exit_y -= 1;
+        else return null;
+        local exit_tile = GSMap.GetTileIndex(exit_x, exit_y);
+        return GSMap.IsValidTile(exit_tile) ? exit_tile : null;
     }
 
     function EstimatePreferredBridge(from, to) {
@@ -2786,7 +2840,8 @@ class ArenaGS extends GSController {
 
         for (local index = 0; index < project.path_links.len(); index++) {
             if (!this.PathLinkIsBuilt(project.path_links[index], project.path[index], project.path[index + 1])) {
-                return "The persisted road path contains a disconnected native road, bridge, or tunnel link.";
+                return "The persisted road path contains a disconnected " + project.path_links[index].kind +
+                    " link at index " + index + " (" + project.path[index] + " to " + project.path[index + 1] + ").";
             }
         }
 
