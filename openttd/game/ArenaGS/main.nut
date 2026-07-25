@@ -2120,11 +2120,11 @@ class ArenaGS extends GSController {
             }
 
             if (!project.search_parent.rawin(current)) return null;
-            local parent = project.search_parent[current];
-            if (typeof parent != "table" || !parent.rawin("tile") || !parent.rawin("link") ||
-                !GSMap.IsValidTile(parent.tile) || !this.IsPersistedPathLink(parent.link)) return null;
-            reverse_links.append(parent.link);
-            current = parent.tile;
+            local parent_entry = project.search_parent[current];
+            if (typeof parent_entry != "table" || !parent_entry.rawin("tile") || !parent_entry.rawin("link") ||
+                !GSMap.IsValidTile(parent_entry.tile) || !this.IsPersistedPathLink(parent_entry.link)) return null;
+            reverse_links.append(parent_entry.link);
+            current = parent_entry.tile;
         }
 
         return null;
