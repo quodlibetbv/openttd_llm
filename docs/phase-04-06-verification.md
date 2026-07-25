@@ -54,6 +54,37 @@ pwsh ./scripts/road-soak.ps1
 
 The script stops at the first failed run and preserves its run directory for diagnosis. `-Count`, `-Config`, and timeout parameters are available for focused local investigation; the default count is the Phase 06 acceptance count of twenty.
 
+## Native bridge and tunnel links
+
+The road executor persists every surveyed path edge as a typed native link. It
+uses ordinary road edges first; when ordinary progress toward the target is
+blocked, it makes a bounded, deterministic set of native bridge/tunnel
+test-mode probes (maximum 24-tile span and 16 special-link probes per search
+node). A legacy road-only saved project is migrated only when every stored edge
+is adjacent; otherwise it safely enters recovery rather than guessing topology.
+
+The stock replay smoke route does not deliberately require an obstacle link, so
+the absence of these events from an ordinary `road-smoke` run is expected. On a
+controlled map where a valid route must cross water or a hill, inspect the
+finished run for the corresponding public event:
+
+```powershell
+$run = Get-ChildItem .runtime/runs -Directory |
+    Sort-Object LastWriteTimeUtc -Descending |
+    Select-Object -First 1
+
+$events = Get-Content (Join-Path $run.FullName 'game-events.ndjson') |
+    ForEach-Object { $_ | ConvertFrom-Json }
+
+$events | Where-Object EventCode -in 'ARENA-BRIDGE-CREATED', 'ARENA-TUNNEL-CREATED'
+```
+
+The route must still reach `ARENA-ROUTE-OPERATING`; the created-link event alone
+is not a successful-route result. A dedicated fixed obstacle-save smoke is not
+part of the published Phase 06 replay input, so retain any controlled-map run
+directory as additional Windows evidence rather than comparing it with the
+immutable road-profit benchmark.
+
 ## Inspect a finished run
 
 `bridge-result.json` must report `succeeded: true` and have no error code. Inspect the latest run without exposing a credential:

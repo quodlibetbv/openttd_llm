@@ -27,6 +27,12 @@ class ArenaGS extends GSController {
      * allowing a short certified route to finish before its smoke timeout. */
     static MAX_SEARCH_STEPS_PER_TICK = 4;
     static MAX_PATH_TILES = 256;
+    /* Bridges and tunnels are explored only when ordinary road progress
+     * toward the target is blocked. Bound their span and probes separately
+     * from ordinary A* nodes so native test-mode commands cannot turn a
+     * terrain detour into an unbounded dispatcher workload. */
+    static MAX_SPECIAL_LINK_SPAN = 24;
+    static MAX_SPECIAL_LINK_PROBES_PER_NODE = 16;
     static MAX_PATH_REPLANS = 3;
     static MAX_STATION_SCAN_RADIUS = 24;
     static MAX_DEPOT_SCAN_RADIUS = 8;
@@ -1480,6 +1486,16 @@ class ArenaGS extends GSController {
 
         GSRoad.SetCurrentRoadType(GSRoad.ROADTYPE_ROAD);
 
+        /* Phase 06 projects created before bridge/tunnel link metadata was
+         * introduced contain an ordinary, adjacent-tile path only. Normalize
+         * that legacy representation before resuming it, while rejecting any
+         * malformed persisted link rather than interpreting it as a native
+         * command. */
+        if (project.rawin("path") && !this.EnsurePersistedPathLinks(project)) {
+            this.BeginRecovery(project, "ARENA-ACTION-PATH-NOT-FOUND", "The persisted route path or its native link metadata is invalid after save/load.");
+            return;
+        }
+
         switch (project.state) {
             case "proposed":
                 project.state = "validating";
@@ -1894,7 +1910,7 @@ class ArenaGS extends GSController {
 
     function BeginRoadReplan(project, from_tile, native_error) {
         if (!project.rawin("path") || !project.rawin("source_path_index") ||
-            !project.rawin("build_cursor") || !GSMap.IsValidTile(from_tile)) {
+            !project.rawin("build_cursor") || !this.EnsurePersistedPathLinks(project) || !GSMap.IsValidTile(from_tile)) {
             this.BeginRecovery(project, "ARENA-ACTION-PATH-NOT-FOUND", "The persisted route could not safely recover its road-path state.");
             return false;
         }
@@ -1981,15 +1997,24 @@ class ArenaGS extends GSController {
                 }
 
                 if (project.path_segment == 0) {
-                    project.path <- path;
+                    project.path <- path.tiles;
+                    project.path_links <- path.links;
                     this.BeginRoadPathSearch(project, project.source_station_front, project.destination_station_front, 1);
                     return;
                 }
 
                 if (project.path_segment == 2) {
+                    if (!this.EnsurePersistedPathLinks(project)) {
+                        this.BeginRecovery(project, "ARENA-ACTION-PATH-NOT-FOUND", "The persisted route could not safely combine a recovered native path link.");
+                        return;
+                    }
+
                     local recovered = [];
+                    local recovered_links = [];
                     for (local prefix_index = 0; prefix_index < project.build_cursor; prefix_index++) recovered.append(project.path[prefix_index]);
-                    foreach (path_tile in path) recovered.append(path_tile);
+                    for (local prefix_link_index = 0; prefix_link_index < project.build_cursor; prefix_link_index++) recovered_links.append(project.path_links[prefix_link_index]);
+                    foreach (path_tile in path.tiles) recovered.append(path_tile);
+                    foreach (path_link in path.links) recovered_links.append(path_link);
 
                     /* A recovery to the source access tile replaces only the
                      * depot-side suffix. Preserve the surveyed source-to-
@@ -2002,29 +2027,43 @@ class ArenaGS extends GSController {
                         for (local tail_index = project.source_path_index + 1; tail_index < project.path.len(); tail_index++) {
                             recovered.append(project.path[tail_index]);
                         }
+                        for (local tail_link_index = project.source_path_index; tail_link_index < project.path_links.len(); tail_link_index++) {
+                            recovered_links.append(project.path_links[tail_link_index]);
+                        }
                     }
 
-                    if (recovered.len() > ArenaGS.MAX_PATH_TILES) {
+                    if (!this.PathFitsCertifiedBound(recovered) || recovered_links.len() != recovered.len() - 1) {
                         this.BeginRecovery(project, "ARENA-ACTION-PATH-NOT-FOUND", "The recovered road path exceeds the certified maximum route length.");
                         return;
                     }
 
                     if (recovered_source_index != null) project.source_path_index = recovered_source_index;
                     project.path = recovered;
+                    project.path_links = recovered_links;
                     project.state = "building_infrastructure";
                     this.RecordEvent("ARENA-ROUTE-PROGRESS", [project.project_id], "The bounded road recovery found a replacement path from the last verified connection.", project.correlation_id);
                     return;
                 }
 
-                local combined = project.path;
+                if (!this.EnsurePersistedPathLinks(project)) {
+                    this.BeginRecovery(project, "ARENA-ACTION-PATH-NOT-FOUND", "The persisted depot-side path cannot be joined to a native station path.");
+                    return;
+                }
+
+                local combined = [];
+                local combined_links = [];
+                foreach (existing_tile in project.path) combined.append(existing_tile);
+                foreach (existing_link in project.path_links) combined_links.append(existing_link);
                 local source_path_index = combined.len() - 1;
-                for (local path_index = 1; path_index < path.len(); path_index++) combined.append(path[path_index]);
-                if (combined.len() > ArenaGS.MAX_PATH_TILES) {
+                for (local path_index = 1; path_index < path.tiles.len(); path_index++) combined.append(path.tiles[path_index]);
+                foreach (path_link in path.links) combined_links.append(path_link);
+                if (!this.PathFitsCertifiedBound(combined) || combined_links.len() != combined.len() - 1) {
                     this.BeginRecovery(project, "ARENA-ACTION-PATH-NOT-FOUND", "The connected depot and station path exceeds the certified maximum route length.");
                     return;
                 }
 
                 project.path <- combined;
+                project.path_links <- combined_links;
                 project.source_path_index <- source_path_index;
                 project.replan_count <- 0;
                 project.build_cursor <- 0;
@@ -2034,12 +2073,14 @@ class ArenaGS extends GSController {
                 return;
             }
 
-            foreach (next_tile in this.NeighbourTiles(node.tile)) {
-                if (project.search_closed.rawin(next_tile) || !this.CanTraverseOrBuildRoad(node.tile, next_tile)) continue;
-                local next_cost = node.g + 1;
+            foreach (transition in this.RoadTransitions(project, node.tile)) {
+                local next_tile = transition.to;
+                if (project.search_closed.rawin(next_tile)) continue;
+                local next_cost = node.g + transition.cost;
+                if (next_cost > ArenaGS.MAX_PATH_TILES - 1) continue;
                 if (!project.search_best.rawin(next_tile) || next_cost < project.search_best[next_tile]) {
                     project.search_best[next_tile] <- next_cost;
-                    project.search_parent[next_tile] <- node.tile;
+                    project.search_parent[next_tile] <- { tile = node.tile, link = transition.link };
                     project.search_open.append({
                         tile = next_tile,
                         g = next_cost,
@@ -2065,26 +2106,239 @@ class ArenaGS extends GSController {
 
     function ReconstructPath(project, destination) {
         local reverse = [];
+        local reverse_links = [];
         local current = destination;
         for (local guard = 0; guard < ArenaGS.MAX_PATH_TILES; guard++) {
             reverse.append(current);
             if (current == project.search_start) {
                 local path = [];
+                local path_links = [];
                 for (local index = reverse.len() - 1; index >= 0; index--) path.append(reverse[index]);
-                return path;
+                for (local link_index = reverse_links.len() - 1; link_index >= 0; link_index--) path_links.append(reverse_links[link_index]);
+                if (path_links.len() != path.len() - 1 || !this.PathFitsCertifiedBound(path)) return null;
+                return { tiles = path, links = path_links };
             }
 
             if (!project.search_parent.rawin(current)) return null;
-            current = project.search_parent[current];
+            local parent = project.search_parent[current];
+            if (typeof parent != "table" || !parent.rawin("tile") || !parent.rawin("link") ||
+                !GSMap.IsValidTile(parent.tile) || !this.IsPersistedPathLink(parent.link)) return null;
+            reverse_links.append(parent.link);
+            current = parent.tile;
         }
 
         return null;
     }
 
-    function CanTraverseOrBuildRoad(from, to) {
-        if (!GSMap.IsValidTile(from) || !GSMap.IsValidTile(to)) return false;
-        if (GSRoad.IsRoadTile(from) && GSRoad.IsRoadTile(to) && GSRoad.AreRoadTilesConnected(from, to)) return true;
-        return this.EstimateRoad(from, to).success;
+    function EnsurePersistedPathLinks(project) {
+        if (!project.rawin("path") || typeof project.path != "array" || project.path.len() < 2) return false;
+
+        if (!project.rawin("path_links")) {
+            /* The original Phase 06 executor stored only ordinary adjacent
+             * road tiles. Preserve those active saves by deriving the one
+             * safe legacy link representation; non-adjacent data is never
+             * guessed as a bridge or tunnel. */
+            local legacy_links = [];
+            for (local legacy_index = 0; legacy_index < project.path.len() - 1; legacy_index++) {
+                local from = project.path[legacy_index];
+                local to = project.path[legacy_index + 1];
+                if (!GSMap.IsValidTile(from) || !GSMap.IsValidTile(to) || GSMap.DistanceManhattan(from, to) != 1) return false;
+                legacy_links.append({ kind = "road" });
+            }
+            project.path_links <- legacy_links;
+        }
+
+        if (typeof project.path_links != "array" || project.path_links.len() != project.path.len() - 1 || !this.PathFitsCertifiedBound(project.path)) return false;
+        for (local index = 0; index < project.path_links.len(); index++) {
+            if (!GSMap.IsValidTile(project.path[index]) || !GSMap.IsValidTile(project.path[index + 1]) ||
+                !this.IsPersistedPathLink(project.path_links[index])) return false;
+        }
+
+        return true;
+    }
+
+    function IsPersistedPathLink(link) {
+        if (typeof link != "table" || !link.rawin("kind") || typeof link.kind != "string") return false;
+        if (link.kind == "road" || link.kind == "tunnel") return true;
+        return link.kind == "bridge" && link.rawin("bridge_type") &&
+            typeof link.bridge_type == "integer" && GSBridge.IsValidBridge(link.bridge_type);
+    }
+
+    function PathFitsCertifiedBound(path) {
+        if (typeof path != "array" || path.len() < 2) return false;
+        local length = 1;
+        for (local index = 0; index < path.len() - 1; index++) {
+            if (!GSMap.IsValidTile(path[index]) || !GSMap.IsValidTile(path[index + 1])) return false;
+            local span = GSMap.DistanceManhattan(path[index], path[index + 1]);
+            if (span < 1) return false;
+            length += span;
+            if (length > ArenaGS.MAX_PATH_TILES) return false;
+        }
+
+        return true;
+    }
+
+    function PathLinkIsBuilt(link, from, to) {
+        if (!this.IsPersistedPathLink(link) || !GSMap.IsValidTile(from) || !GSMap.IsValidTile(to)) return false;
+        if (link.kind == "road") {
+            return GSRoad.AreRoadTilesConnected(from, to);
+        }
+        if (link.kind == "bridge") {
+            return GSBridge.IsBridgeTile(from) && GSBridge.GetOtherBridgeEnd(from) == to &&
+                GSRoad.HasRoadType(from, GSRoad.ROADTYPE_ROAD) && GSRoad.HasRoadType(to, GSRoad.ROADTYPE_ROAD);
+        }
+
+        return GSTunnel.IsTunnelTile(from) && GSTunnel.GetOtherTunnelEnd(from) == to &&
+            GSRoad.HasRoadType(from, GSRoad.ROADTYPE_ROAD) && GSRoad.HasRoadType(to, GSRoad.ROADTYPE_ROAD);
+    }
+
+    function RoadTransitions(project, from) {
+        local transitions = [];
+        local current_distance = this.PathHeuristic(from, project.search_target);
+        local has_progress_toward_target = false;
+
+        foreach (next_tile in this.NeighbourTiles(from)) {
+            local road = this.OrdinaryRoadTransition(from, next_tile);
+            if (road == null) continue;
+            transitions.append(road);
+            if (this.PathHeuristic(next_tile, project.search_target) < current_distance) has_progress_toward_target = true;
+        }
+
+        foreach (special in this.ExistingSpecialTransitions(from)) {
+            transitions.append(special);
+            if (this.PathHeuristic(special.to, project.search_target) < current_distance) has_progress_toward_target = true;
+        }
+
+        /* A bridge or tunnel is a deliberate escape from a direct terrain
+         * block, not a high-fanout alternative for every ordinary road tile.
+         * This retains deterministic bounded A* behaviour while allowing the
+         * executor to cross a river or hill when normal progress is blocked. */
+        if (has_progress_toward_target) return transitions;
+
+        local special_probes = 0;
+        local tunnel = this.PlannedTunnelTransition(project, from);
+        if (tunnel != null) {
+            transitions.append(tunnel);
+            special_probes += 1;
+        }
+
+        foreach (bridge in this.PlannedBridgeTransitions(project, from, ArenaGS.MAX_SPECIAL_LINK_PROBES_PER_NODE - special_probes)) {
+            transitions.append(bridge);
+        }
+
+        return transitions;
+    }
+
+    function OrdinaryRoadTransition(from, to) {
+        if (!GSMap.IsValidTile(from) || !GSMap.IsValidTile(to) || GSMap.DistanceManhattan(from, to) != 1) return null;
+        local link = { kind = "road" };
+        if (!this.PathLinkIsBuilt(link, from, to) && !this.EstimateRoad(from, to).success) return null;
+        return { to = to, cost = 1, link = link };
+    }
+
+    function ExistingSpecialTransitions(from) {
+        local result = [];
+        if (!GSMap.IsValidTile(from)) return result;
+
+        if (GSBridge.IsBridgeTile(from)) {
+            local bridge_end = GSBridge.GetOtherBridgeEnd(from);
+            local bridge_type = GSBridge.GetBridgeID(from);
+            if (GSMap.IsValidTile(bridge_end) && bridge_end != from && GSRoad.HasRoadType(from, GSRoad.ROADTYPE_ROAD) &&
+                GSRoad.HasRoadType(bridge_end, GSRoad.ROADTYPE_ROAD) && GSBridge.IsValidBridge(bridge_type)) {
+                result.append({
+                    to = bridge_end,
+                    cost = GSMap.DistanceManhattan(from, bridge_end),
+                    link = { kind = "bridge", bridge_type = bridge_type },
+                });
+            }
+        }
+
+        if (GSTunnel.IsTunnelTile(from)) {
+            local tunnel_end = GSTunnel.GetOtherTunnelEnd(from);
+            if (GSMap.IsValidTile(tunnel_end) && tunnel_end != from && GSRoad.HasRoadType(from, GSRoad.ROADTYPE_ROAD) &&
+                GSRoad.HasRoadType(tunnel_end, GSRoad.ROADTYPE_ROAD)) {
+                result.append({
+                    to = tunnel_end,
+                    cost = GSMap.DistanceManhattan(from, tunnel_end),
+                    link = { kind = "tunnel" },
+                });
+            }
+        }
+
+        return result;
+    }
+
+    function PlannedTunnelTransition(project, from) {
+        local to = GSTunnel.GetOtherTunnelEnd(from);
+        if (!GSMap.IsValidTile(to) || to == from) return null;
+        local span = GSMap.DistanceManhattan(from, to);
+        if (span < 2 || span > ArenaGS.MAX_SPECIAL_LINK_SPAN ||
+            this.PathHeuristic(to, project.search_target) >= this.PathHeuristic(from, project.search_target)) return null;
+        local estimate = this.EstimateTunnel(from);
+        if (!estimate.success || estimate.to != to) return null;
+        return { to = to, cost = span, link = { kind = "tunnel" } };
+    }
+
+    function PlannedBridgeTransitions(project, from, maximum_probes) {
+        local result = [];
+        if (maximum_probes <= 0 || !GSMap.IsValidTile(from)) return result;
+
+        local directions = [];
+        local x = GSMap.GetTileX(from);
+        local y = GSMap.GetTileY(from);
+        local target_x = GSMap.GetTileX(project.search_target);
+        local target_y = GSMap.GetTileY(project.search_target);
+        if (target_x > x) directions.append({ dx = 1, dy = 0 });
+        if (target_x < x) directions.append({ dx = -1, dy = 0 });
+        if (target_y > y) directions.append({ dx = 0, dy = 1 });
+        if (target_y < y) directions.append({ dx = 0, dy = -1 });
+
+        local probes = 0;
+        for (local span = 2; span <= ArenaGS.MAX_SPECIAL_LINK_SPAN && probes < maximum_probes; span++) {
+            foreach (direction in directions) {
+                if (probes >= maximum_probes) break;
+                local to = GSMap.GetTileIndex(x + direction.dx * span, y + direction.dy * span);
+                if (!GSMap.IsValidTile(to) || this.PathHeuristic(to, project.search_target) >= this.PathHeuristic(from, project.search_target)) continue;
+                probes += 1;
+                local estimate = this.EstimatePreferredBridge(from, to);
+                if (!estimate.success) continue;
+                result.append({
+                    to = to,
+                    cost = span,
+                    link = { kind = "bridge", bridge_type = estimate.bridge_type },
+                });
+            }
+        }
+
+        return result;
+    }
+
+    function EstimatePreferredBridge(from, to) {
+        if (!GSMap.IsValidTile(from) || !GSMap.IsValidTile(to)) return { success = false, cost = 0 };
+        local span = GSMap.DistanceManhattan(from, to);
+        if (span < 2 || span > ArenaGS.MAX_SPECIAL_LINK_SPAN) return { success = false, cost = 0 };
+
+        /* Bridge list lengths include both ramp tiles, whereas Manhattan
+         * distance is the distance between those endpoints. Select the
+         * cheapest available type deterministically before issuing one native
+         * test-mode build for the candidate. */
+        local bridge_length = span + 1;
+        local bridge_types = GSBridgeList_Length(bridge_length);
+        bridge_types.Sort(GSList.SORT_BY_ITEM, GSList.SORT_ASCENDING);
+        local bridge_type = null;
+        local bridge_price = null;
+        for (local candidate = bridge_types.Begin(); !bridge_types.IsEnd(); candidate = bridge_types.Next()) {
+            if (!GSBridge.IsValidBridge(candidate)) continue;
+            local candidate_price = GSBridge.GetPrice(candidate, bridge_length);
+            if (candidate_price < 0) continue;
+            if (bridge_type == null || candidate_price < bridge_price || (candidate_price == bridge_price && candidate < bridge_type)) {
+                bridge_type = candidate;
+                bridge_price = candidate_price;
+            }
+        }
+
+        if (bridge_type == null) return { success = false, cost = 0 };
+        return this.EstimateBridge(from, to, bridge_type);
     }
 
     function AdvanceInfrastructure(project) {
@@ -2110,7 +2364,12 @@ class ArenaGS extends GSController {
             return;
         }
 
-        if (project.build_cursor >= project.path.len() - 1) {
+        if (!this.EnsurePersistedPathLinks(project)) {
+            this.BeginRecovery(project, "ARENA-ACTION-PATH-NOT-FOUND", "The constructed route assets no longer have a valid persisted native path.");
+            return;
+        }
+
+        if (project.build_cursor >= project.path_links.len()) {
             project.state = "buying_vehicles";
             this.RecordEvent("ARENA-PROJECT-BUYING-VEHICLES", [project.project_id, project.route_id], "Road infrastructure is complete and the project began selecting compatible passenger vehicles.", project.correlation_id);
             return;
@@ -2118,12 +2377,13 @@ class ArenaGS extends GSController {
 
         local from = project.path[project.build_cursor];
         local to = project.path[project.build_cursor + 1];
-        if (!GSRoad.IsRoadTile(from) || !GSRoad.IsRoadTile(to) || !GSRoad.AreRoadTilesConnected(from, to)) {
-            if (!this.ExecuteRoad(project, from, to)) return;
+        local link = project.path_links[project.build_cursor];
+        if (!this.PathLinkIsBuilt(link, from, to)) {
+            if (!this.ExecutePathLink(project, link, from, to)) return;
         }
 
         project.build_cursor += 1;
-        if (project.build_cursor % 8 == 0 || project.build_cursor >= project.path.len() - 1) {
+        if (project.build_cursor % 8 == 0 || project.build_cursor >= project.path_links.len()) {
             this.RecordEvent("ARENA-ROUTE-PROGRESS", [project.project_id], "The deterministic road construction cursor advanced within the declared project budget.", project.correlation_id);
         }
     }
@@ -2221,6 +2481,40 @@ class ArenaGS extends GSController {
         return result;
     }
 
+    function EstimateBridge(from, to, bridge_type) {
+        if (!GSMap.IsValidTile(from) || !GSMap.IsValidTile(to) || !GSBridge.IsValidBridge(bridge_type)) {
+            return { success = false, cost = 0, bridge_type = bridge_type };
+        }
+
+        local test = GSTestMode();
+        local accounting = GSAccounting();
+        local success = GSBridge.BuildBridge(GSVehicle.VT_ROAD, bridge_type, from, to);
+        local result = {
+            success = success,
+            cost = this.AbsoluteCost(accounting.GetCosts()),
+            bridge_type = bridge_type,
+        };
+        test = null;
+        return result;
+    }
+
+    function EstimateTunnel(from) {
+        if (!GSMap.IsValidTile(from)) return { success = false, cost = 0, to = null };
+        local to = GSTunnel.GetOtherTunnelEnd(from);
+        if (!GSMap.IsValidTile(to) || to == from) return { success = false, cost = 0, to = null };
+
+        local test = GSTestMode();
+        local accounting = GSAccounting();
+        local success = GSTunnel.BuildTunnel(GSVehicle.VT_ROAD, from);
+        local result = {
+            success = success,
+            cost = this.AbsoluteCost(accounting.GetCosts()),
+            to = to,
+        };
+        test = null;
+        return result;
+    }
+
     function EstimateStation(tile, front, drive_through) {
         local test = GSTestMode();
         local accounting = GSAccounting();
@@ -2239,6 +2533,17 @@ class ArenaGS extends GSController {
         local result = { success = success, cost = this.AbsoluteCost(accounting.GetCosts()) };
         test = null;
         return result;
+    }
+
+    function ExecutePathLink(project, link, from, to) {
+        if (!this.IsPersistedPathLink(link)) {
+            this.BeginRecovery(project, "ARENA-ACTION-PATH-NOT-FOUND", "The next persisted route link is not a supported native road, bridge, or tunnel command.");
+            return false;
+        }
+
+        if (link.kind == "road") return this.ExecuteRoad(project, from, to);
+        if (link.kind == "bridge") return this.ExecuteBridge(project, from, to, link.bridge_type);
+        return this.ExecuteTunnel(project, from, to);
     }
 
     function ExecuteRoad(project, from, to) {
@@ -2264,6 +2569,70 @@ class ArenaGS extends GSController {
             return false;
         }
 
+        return true;
+    }
+
+    function ExecuteBridge(project, from, to, bridge_type) {
+        local estimate = this.EstimateBridge(from, to, bridge_type);
+        if (!estimate.success) {
+            this.BeginRoadReplan(project, from, GSError.GetLastErrorString());
+            return false;
+        }
+
+        if (!this.CanSpend(project, estimate.cost)) {
+            this.BeginRecovery(project, "ARENA-ACTION-BUDGET-EXCEEDED", "The next road bridge would exceed the declared maximum budget or available company cash.");
+            return false;
+        }
+
+        local accounting = GSAccounting();
+        if (!GSBridge.BuildBridge(GSVehicle.VT_ROAD, bridge_type, from, to)) {
+            this.BeginRoadReplan(project, from, GSError.GetLastErrorString());
+            return false;
+        }
+
+        if (!this.RecordActualSpend(project, accounting.GetCosts(), estimate.cost)) {
+            this.BeginRecovery(project, "ARENA-ACTION-BUDGET-EXCEEDED", "The native road bridge cost changed after preflight and the project stopped before exceeding its declared budget.");
+            return false;
+        }
+
+        if (!this.PathLinkIsBuilt({ kind = "bridge", bridge_type = bridge_type }, from, to)) {
+            this.BeginRecovery(project, "ARENA-ACTION-PATH-NOT-FOUND", "The native bridge command completed without the planned road bridge topology.");
+            return false;
+        }
+
+        this.RecordEvent("ARENA-BRIDGE-CREATED", [project.project_id, "bridge-" + from + "-" + to], "A native road bridge was created by the persisted route project.", project.correlation_id);
+        return true;
+    }
+
+    function ExecuteTunnel(project, from, to) {
+        local estimate = this.EstimateTunnel(from);
+        if (!estimate.success || estimate.to != to) {
+            this.BeginRoadReplan(project, from, GSError.GetLastErrorString());
+            return false;
+        }
+
+        if (!this.CanSpend(project, estimate.cost)) {
+            this.BeginRecovery(project, "ARENA-ACTION-BUDGET-EXCEEDED", "The next road tunnel would exceed the declared maximum budget or available company cash.");
+            return false;
+        }
+
+        local accounting = GSAccounting();
+        if (!GSTunnel.BuildTunnel(GSVehicle.VT_ROAD, from)) {
+            this.BeginRoadReplan(project, from, GSError.GetLastErrorString());
+            return false;
+        }
+
+        if (!this.RecordActualSpend(project, accounting.GetCosts(), estimate.cost)) {
+            this.BeginRecovery(project, "ARENA-ACTION-BUDGET-EXCEEDED", "The native road tunnel cost changed after preflight and the project stopped before exceeding its declared budget.");
+            return false;
+        }
+
+        if (!this.PathLinkIsBuilt({ kind = "tunnel" }, from, to)) {
+            this.BeginRecovery(project, "ARENA-ACTION-PATH-NOT-FOUND", "The native tunnel command completed without the planned road tunnel topology.");
+            return false;
+        }
+
+        this.RecordEvent("ARENA-TUNNEL-CREATED", [project.project_id, "tunnel-" + from + "-" + to], "A native road tunnel was created by the persisted route project.", project.correlation_id);
         return true;
     }
 
@@ -2407,7 +2776,7 @@ class ArenaGS extends GSController {
     }
 
     function OperationalRouteTopologyError(project) {
-        if (!project.rawin("path") || project.path.len() < 2) return "The persisted project no longer contains a complete road path.";
+        if (!this.EnsurePersistedPathLinks(project)) return "The persisted project no longer contains a complete certified native road path.";
         if (!project.rawin("depot_tile") || !GSRoad.IsRoadDepotTile(project.depot_tile)) return "The persisted project depot is no longer a native road depot.";
         if (!project.rawin("source_station_tile") || !GSRoad.IsRoadStationTile(project.source_station_tile)) return "The persisted source stop is no longer a native road station.";
         if (!project.rawin("destination_station_tile") || !GSRoad.IsRoadStationTile(project.destination_station_tile)) return "The persisted destination stop is no longer a native road station.";
@@ -2415,9 +2784,10 @@ class ArenaGS extends GSController {
         if (GSRoad.GetRoadStationFrontTile(project.source_station_tile) != project.source_station_front) return "The persisted source station access tile no longer matches the native station front.";
         if (GSRoad.GetRoadStationFrontTile(project.destination_station_tile) != project.destination_station_front) return "The persisted destination station access tile no longer matches the native station front.";
 
-        for (local index = 0; index < project.path.len(); index++) {
-            if (!GSRoad.IsRoadTile(project.path[index])) return "The persisted road path contains a tile that is not traversable road.";
-            if (index > 0 && !GSRoad.AreRoadTilesConnected(project.path[index - 1], project.path[index])) return "The persisted road path contains a disconnected native road segment.";
+        for (local index = 0; index < project.path_links.len(); index++) {
+            if (!this.PathLinkIsBuilt(project.path_links[index], project.path[index], project.path[index + 1])) {
+                return "The persisted road path contains a disconnected native road, bridge, or tunnel link.";
+            }
         }
 
         if (project.path[0] != project.depot_front) return "The persisted road path no longer starts at the native depot access tile.";

@@ -20,6 +20,8 @@ normalizes OpenTTD's signed recurring-expense value at the GameScript boundary.
 | `ARENA-PROJECT-INFRASTRUCTURE` | Placement survey completed and infrastructure work began. |
 | `ARENA-STATION-CREATED` | A road station was created. |
 | `ARENA-DEPOT-CREATED` | A road depot was created. |
+| `ARENA-BRIDGE-CREATED` | A bounded native road bridge was created as one persisted route link. |
+| `ARENA-TUNNEL-CREATED` | A bounded native road tunnel was created as one persisted route link. |
 | `ARENA-ROUTE-PROGRESS` | A bounded path/replan/construction milestone occurred. |
 | `ARENA-PROJECT-BUYING-VEHICLES` | Infrastructure completed and vehicle selection began. |
 | `ARENA-VEHICLE-CREATED` | A compatible route vehicle was purchased. |

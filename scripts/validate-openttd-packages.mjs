@@ -37,8 +37,14 @@ export function validateOpenTtdPackages() {
       !/function IsValidScenarioConstraintContext\(/.test(gameMain) ||
       !/if \(action\.rawin\("constraint_context"\) && !this\.ScenarioAllowsTool\(action\)\)/.test(gameMain) ||
       !/action\.tool == "repay_loan" &&\s*GSCompany\.GetBankBalance\(company_id\) - amount < action\.constraint_context\.minimum_cash_reserve/.test(gameMain) ||
-      !/quarterly_expenses = this\.NonNegative\(-GSCompany\.GetQuarterlyExpenses\(company_id, GSCompany\.CURRENT_QUARTER\)\)/.test(gameMain)) {
-    errors.push("ArenaGS must expose the Phase 03-07 persisted AdminPort and scenario-constraint boundary.");
+      !/quarterly_expenses = this\.NonNegative\(-GSCompany\.GetQuarterlyExpenses\(company_id, GSCompany\.CURRENT_QUARTER\)\)/.test(gameMain) ||
+      !/function EnsurePersistedPathLinks\(/.test(gameMain) ||
+      !/MAX_SPECIAL_LINK_SPAN/.test(gameMain) ||
+      !/GSBridge\.BuildBridge\(GSVehicle\.VT_ROAD/.test(gameMain) ||
+      !/GSTunnel\.BuildTunnel\(GSVehicle\.VT_ROAD/.test(gameMain) ||
+      !/ARENA-BRIDGE-CREATED/.test(gameMain) ||
+      !/ARENA-TUNNEL-CREATED/.test(gameMain)) {
+    errors.push("ArenaGS must expose the Phase 03-07 persisted AdminPort, scenario-constraint, and bounded native-road-link boundary.");
   }
 
   if (!/class ModelProxyAIInfo extends AIInfo/.test(aiInfo) || !/RegisterAI\(ModelProxyAIInfo\(\)\);/.test(aiInfo)) {
