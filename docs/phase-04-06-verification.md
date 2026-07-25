@@ -84,7 +84,7 @@ providers:
   deepseek:
     type: deepseek
     base_url: https://api.deepseek.com/
-    model: deepseek-chat
+    model: deepseek-v4-flash
     credential_ref: credman:OpenTTDModelArena/DeepSeek
     timeout_seconds: 45
     maximum_transient_retries: 1
@@ -102,7 +102,7 @@ Then explicitly run the live proof:
 pwsh ./scripts/ttd-arena.ps1 provider-road-smoke deepseek
 ```
 
-This final command makes one or more billable DeepSeek requests within the configured retry policy. Its public request supplies the trusted `decision_id`, a one-action limit, and the versioned `build_transport_route` argument contract; it does not supply host, filesystem, console, AdminPort, or credential access. The command pauses the simulation across the provider call and validation interval, requires the provider to choose the typed route action, and verifies the resulting route with the same downstream GameScript path used by replay. A successful result is the Phase 05/06 live-provider acceptance artifact.
+This final command makes one or more billable DeepSeek requests within the configured retry policy. Its public request supplies the trusted `decision_id`, a one-action limit, and the versioned `build_transport_route` argument contract; it does not supply host, filesystem, console, AdminPort, credential access, or an instruction to return hidden reasoning. For DeepSeek V4, the adapter explicitly selects non-thinking mode so the bounded output budget is reserved for the public decision JSON. The command pauses the simulation across the provider call and validation interval, requires the provider to choose the typed route action, and verifies the resulting route with the same downstream GameScript path used by replay. A successful result is the Phase 05/06 live-provider acceptance artifact.
 
 ## Visual boundary
 

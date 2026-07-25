@@ -25,8 +25,9 @@ public sealed class DeepSeekModelProviderTests
         Assert.Equal("chatcmpl-sanitized-0001", result.Usage.ProviderRequestId);
         string requestBody = Assert.Single(handler.RequestBodies);
         using JsonDocument document = JsonDocument.Parse(requestBody);
-        Assert.Equal("deepseek-chat", document.RootElement.GetProperty("model").GetString());
+        Assert.Equal("deepseek-v4-flash", document.RootElement.GetProperty("model").GetString());
         Assert.Equal("json_object", document.RootElement.GetProperty("response_format").GetProperty("type").GetString());
+        Assert.Equal("disabled", document.RootElement.GetProperty("thinking").GetProperty("type").GetString());
         string userMessage = document.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!;
         using JsonDocument prompt = JsonDocument.Parse(userMessage);
         Assert.Equal("decision-0001", prompt.RootElement.GetProperty("decision_id").GetString());
@@ -148,7 +149,7 @@ public sealed class DeepSeekModelProviderTests
             new FixtureCredentialResolver(),
             new DeepSeekProviderOptions(
                 new Uri("https://provider.invalid/"),
-                "deepseek-chat",
+                "deepseek-v4-flash",
                 timeout ?? TimeSpan.FromSeconds(2),
                 maximumTransientRetries));
 

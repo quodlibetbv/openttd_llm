@@ -129,7 +129,7 @@ providers:
   deepseek:
     type: deepseek
     base_url: https://api.deepseek.com/
-    model: deepseek-chat
+    model: deepseek-v4-flash
     credential_ref: credman:OpenTTDModelArena/DeepSeek
     timeout_seconds: 45
     maximum_transient_retries: 1

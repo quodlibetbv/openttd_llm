@@ -67,7 +67,7 @@ public sealed class DeepSeekModelProvider : IModelProvider
         _timeProvider = timeProvider ?? TimeProvider.System;
         Descriptor = new ProviderDescriptor(
             ProviderId: options.ProviderId,
-            AdapterVersion: "1.0",
+            AdapterVersion: "1.1",
             SupportsStructuredOutput: true);
     }
 
@@ -172,6 +172,10 @@ public sealed class DeepSeekModelProvider : IModelProvider
                 new { role = "user", content = ArenaPromptTemplate.CreateUserMessage(request) },
             },
             response_format = new { type = "json_object" },
+            // DeepSeek V4 defaults to thinking mode. The shared Arena contract
+            // accepts only publishable decision JSON and never retains hidden
+            // reasoning, so force the non-thinking mode at this boundary.
+            thinking = new { type = "disabled" },
             max_tokens = request.RemainingOutputTokens,
             temperature = 0,
             stream = false,

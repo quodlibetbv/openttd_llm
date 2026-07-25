@@ -12,10 +12,13 @@ namespace OpenTtd.ModelArena.Providers;
 /// </summary>
 public static class ArenaPromptTemplate
 {
-    public const string Version = "1.4";
+    public const string Version = "1.5";
 
     private const string SystemTemplate = """
 You are a strategic transport benchmark participant. Return exactly one JSON object matching the Arena model-decision.v1 contract. The object must contain decision_id, public_summary, observations, actions, and next_review_game_days. Copy the supplied decision_id exactly. Use only the declared tools and their typed arguments. Public text must be concise and publishable. Do not provide hidden reasoning, chain-of-thought, markdown, or any field outside the JSON contract.
+
+Use this illustrative JSON shape only as a field-format example; replace every illustrative value with a value that complies with the supplied observation and typed tool contracts:
+{"decision_id":"copy-the-supplied-decision-id","public_summary":"A concise public statement.","observations":["A concise factual observation."],"actions":[{"tool":"one-declared-tool","arguments":{}}],"next_review_game_days":7}
 """;
 
     private const string SchemaCorrectionInstruction =
