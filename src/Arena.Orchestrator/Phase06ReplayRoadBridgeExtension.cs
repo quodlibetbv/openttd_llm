@@ -14,8 +14,11 @@ namespace OpenTtd.ModelArena.Orchestrator;
 public sealed class Phase06ReplayRoadBridgeExtension : IPhase03BridgeExtension
 {
     internal const string FixtureRelativePath = "replays/phase-06-road-smoke.v1.json";
+    internal const string SpecialLinkFixtureRelativePath = "replays/phase-06-road-special-link-smoke.v1.json";
     private const int VerificationPollLimit = 150;
     private readonly bool _verifyFleetExpansion;
+    private readonly string _fixtureRelativePath;
+    private readonly string? _requiredNativeLinkEventCode;
 
     /// <summary>
     /// The normal road smoke proves the fixed replay decision can create one
@@ -24,8 +27,25 @@ public sealed class Phase06ReplayRoadBridgeExtension : IPhase03BridgeExtension
     /// without giving a provider any game-side capability.
     /// </summary>
     public Phase06ReplayRoadBridgeExtension(bool verifyFleetExpansion = false)
+        : this(verifyFleetExpansion, FixtureRelativePath, null)
+    {
+    }
+
+    /// <summary>
+    /// Creates the fixed-map smoke extension that must create a native road
+    /// bridge before it can verify the route is operational.
+    /// </summary>
+    public static Phase06ReplayRoadBridgeExtension CreateSpecialLinkSmoke() =>
+        new(false, SpecialLinkFixtureRelativePath, "ARENA-BRIDGE-CREATED");
+
+    private Phase06ReplayRoadBridgeExtension(
+        bool verifyFleetExpansion,
+        string fixtureRelativePath,
+        string? requiredNativeLinkEventCode)
     {
         _verifyFleetExpansion = verifyFleetExpansion;
+        _fixtureRelativePath = fixtureRelativePath;
+        _requiredNativeLinkEventCode = requiredNativeLinkEventCode;
     }
 
     public async Task<Phase03BridgeExtensionResult> RunAsync(
@@ -37,7 +57,7 @@ public sealed class Phase06ReplayRoadBridgeExtension : IPhase03BridgeExtension
         ReplayFixture fixture;
         try
         {
-            fixture = LoadFixture(context.Configuration.RepositoryRoot);
+            fixture = LoadFixture(context.Configuration.RepositoryRoot, _fixtureRelativePath);
         }
         catch (Exception exception) when (exception is IOException or JsonException or InvalidOperationException)
         {
@@ -155,6 +175,24 @@ public sealed class Phase06ReplayRoadBridgeExtension : IPhase03BridgeExtension
                         checks);
                 }
 
+                if (_requiredNativeLinkEventCode is not null)
+                {
+                    bool createdRequiredLink = snapshotResult.Snapshot.Events.Any(eventEntry =>
+                        string.Equals(eventEntry.EventCode, _requiredNativeLinkEventCode, StringComparison.Ordinal) &&
+                        string.Equals(eventEntry.CorrelationId, acceptedAction.CorrelationId, StringComparison.Ordinal));
+                    if (!createdRequiredLink)
+                    {
+                        return Phase03BridgeExtensionResult.Failure(
+                            ArenaErrorCodes.ArtifactVerificationFailed,
+                            "The fixed special-link route completed without its required correlated native bridge event.",
+                            checks);
+                    }
+
+                    checks.Add(Pass(
+                        "native-special-link",
+                        "The fixed obstacle route created its required correlated native road bridge before becoming operational."));
+                }
+
                 checks.Add(Pass("route-operational", "The project completed within its declared budget with valid route entities and demonstrated movement."));
                 checks.Add(Pass("route-events", "The normalized GameScript route-progress and final events were persisted under the isolated run root."));
                 if (_verifyFleetExpansion)
@@ -169,7 +207,11 @@ public sealed class Phase06ReplayRoadBridgeExtension : IPhase03BridgeExtension
                         cancellationToken);
                 }
 
-                return Phase03BridgeExtensionResult.Success("The Phase 06 replay road proof completed.", checks);
+                return Phase03BridgeExtensionResult.Success(
+                    _requiredNativeLinkEventCode is null
+                        ? "The Phase 06 replay road proof completed."
+                        : "The Phase 06 replay native special-link proof completed.",
+                    checks);
             }
 
             if (project is not null && string.Equals(project.State, "failed", StringComparison.Ordinal))
@@ -480,9 +522,12 @@ public sealed class Phase06ReplayRoadBridgeExtension : IPhase03BridgeExtension
     }
 
     internal static ReplayFixture LoadFixture(string repositoryRoot)
+        => LoadFixture(repositoryRoot, FixtureRelativePath);
+
+    private static ReplayFixture LoadFixture(string repositoryRoot, string fixtureRelativePath)
     {
         string root = Path.GetFullPath(repositoryRoot);
-        string fixturePath = Path.GetFullPath(Path.Combine(root, FixtureRelativePath));
+        string fixturePath = Path.GetFullPath(Path.Combine(root, fixtureRelativePath));
         string rootWithSeparator = root.EndsWith(Path.DirectorySeparatorChar)
             ? root
             : root + Path.DirectorySeparatorChar;

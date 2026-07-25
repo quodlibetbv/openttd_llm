@@ -48,6 +48,7 @@ public static class ArenaCommandLine
                 "bridge-smoke" => await RunBridgeSmokeAsync(repositoryRoot, args[1..], cancellationToken),
                 "observation-smoke" => await RunObservationSmokeAsync(repositoryRoot, args[1..], cancellationToken),
                 "road-smoke" => await RunRoadSmokeAsync(repositoryRoot, args[1..], cancellationToken),
+                "road-special-link-smoke" => await RunRoadSpecialLinkSmokeAsync(repositoryRoot, args[1..], cancellationToken),
                 "fleet-smoke" => await RunFleetSmokeAsync(repositoryRoot, args[1..], cancellationToken),
                 "road-save-load-smoke" => await RunRoadSaveLoadSmokeAsync(repositoryRoot, args[1..], cancellationToken),
                 "road-budget-smoke" => await RunRoadBudgetSmokeAsync(repositoryRoot, args[1..], cancellationToken),
@@ -1136,13 +1137,19 @@ public static class ArenaCommandLine
         string repositoryRoot,
         IReadOnlyList<string> arguments,
         CancellationToken cancellationToken) =>
-        RunRoadSmokeCoreAsync(repositoryRoot, arguments, false, "road-smoke", "Phase 06 replay road smoke", cancellationToken);
+        RunRoadSmokeCoreAsync(repositoryRoot, arguments, false, false, "road-smoke", "Phase 06 replay road smoke", cancellationToken);
+
+    private static Task<int> RunRoadSpecialLinkSmokeAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken) =>
+        RunRoadSmokeCoreAsync(repositoryRoot, arguments, false, true, "road-special-link-smoke", "Phase 06 native bridge special-link smoke", cancellationToken);
 
     private static Task<int> RunFleetSmokeAsync(
         string repositoryRoot,
         IReadOnlyList<string> arguments,
         CancellationToken cancellationToken) =>
-        RunRoadSmokeCoreAsync(repositoryRoot, arguments, true, "fleet-smoke", "Phase 06 replay road and fleet smoke", cancellationToken);
+        RunRoadSmokeCoreAsync(repositoryRoot, arguments, true, false, "fleet-smoke", "Phase 06 replay road and fleet smoke", cancellationToken);
 
     private static async Task<int> RunRoadSaveLoadSmokeAsync(
         string repositoryRoot,
@@ -1421,6 +1428,7 @@ public static class ArenaCommandLine
         string repositoryRoot,
         IReadOnlyList<string> arguments,
         bool verifyFleetExpansion,
+        bool requireNativeBridgeLink,
         string commandName,
         string displayName,
         CancellationToken cancellationToken)
@@ -1471,7 +1479,9 @@ public static class ArenaCommandLine
                 TimeSpan.FromSeconds(startupTimeoutSeconds),
                 TimeSpan.FromSeconds(requestTimeoutSeconds),
                 TimeSpan.FromSeconds(shutdownTimeoutSeconds)),
-            new Phase06ReplayRoadBridgeExtension(verifyFleetExpansion),
+            requireNativeBridgeLink
+                ? Phase06ReplayRoadBridgeExtension.CreateSpecialLinkSmoke()
+                : new Phase06ReplayRoadBridgeExtension(verifyFleetExpansion),
             cancellationToken);
 
         if (options.Flags.Contains("--json"))
@@ -2084,6 +2094,7 @@ public static class ArenaCommandLine
         Console.WriteLine("  ttd-arena bridge-smoke [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
         Console.WriteLine("  ttd-arena observation-smoke [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
         Console.WriteLine("  ttd-arena road-smoke [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+        Console.WriteLine("  ttd-arena road-special-link-smoke [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
         Console.WriteLine("  ttd-arena fleet-smoke [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
         Console.WriteLine("  ttd-arena road-save-load-smoke --stage <proposed|validating|surveying|building_infrastructure|buying_vehicles|configuring_orders|verifying> [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
         Console.WriteLine("  ttd-arena road-budget-smoke [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");

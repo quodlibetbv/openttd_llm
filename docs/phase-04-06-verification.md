@@ -27,6 +27,7 @@ Run each command from the repository root. Every command allocates a fresh `.run
 | `pwsh ./scripts/ttd-arena.ps1 observation-smoke` | ArenaGS emits an authoritative snapshot and the orchestrator writes a bounded canonical observation. | `observations.ndjson`, `game-events.ndjson`, `bridge-result.json` |
 | `pwsh ./scripts/ttd-arena.ps1 observations replay <run-directory>` | Recorded snapshot/delta hashes replay to the reported human-readable state without OpenTTD. | CLI replay output and `observations.ndjson` |
 | `pwsh ./scripts/ttd-arena.ps1 road-smoke` | A replayed `ModelDecision` builds and verifies a passenger road route. | `decisions.ndjson`, `actions.ndjson`, project events, `bridge-result.json` |
+| `pwsh ./scripts/ttd-arena.ps1 road-special-link-smoke` | A fixed obstacle route creates a native bridge and then verifies one operational passenger route within budget. | `ARENA-BRIDGE-CREATED`, `ARENA-ROUTE-OPERATING`, and `native-special-link` in `bridge-result.json` |
 | `pwsh ./scripts/ttd-arena.ps1 fleet-smoke` | A completed route accepts a fleet expansion exactly once and remains operational. | fleet action/result records and `fleet-idempotency` check |
 | `pwsh ./scripts/ttd-arena.ps1 road-budget-smoke` | A deliberately impossible project budget fails before construction and recovers without created route assets. | budget failure event and `budget-recovery` check |
 
@@ -66,26 +67,17 @@ commands can replace perpendicular road halves. A legacy road-only saved project
 is adjacent; otherwise it safely enters recovery rather than guessing topology.
 
 The stock replay smoke route does not deliberately require an obstacle link, so
-the absence of these events from an ordinary `road-smoke` run is expected. On a
-controlled map where a valid route must cross water or a hill, inspect the
-finished run for the corresponding public event:
+the absence of these events from an ordinary `road-smoke` run is expected. Use
+the dedicated fixed obstacle route to prove the bridge boundary instead:
 
 ```powershell
-$run = Get-ChildItem .runtime/runs -Directory |
-    Sort-Object LastWriteTimeUtc -Descending |
-    Select-Object -First 1
-
-$events = Get-Content (Join-Path $run.FullName 'game-events.ndjson') |
-    ForEach-Object { $_ | ConvertFrom-Json }
-
-$events | Where-Object EventCode -in 'ARENA-BRIDGE-CREATED', 'ARENA-TUNNEL-CREATED'
+pwsh ./scripts/ttd-arena.ps1 road-special-link-smoke
 ```
 
-The route must still reach `ARENA-ROUTE-OPERATING`; the created-link event alone
-is not a successful-route result. A dedicated fixed obstacle-save smoke is not
-part of the published Phase 06 replay input, so retain any controlled-map run
-directory as additional Windows evidence rather than comparing it with the
-immutable road-profit benchmark.
+The run must include both `ARENA-BRIDGE-CREATED` and
+`ARENA-ROUTE-OPERATING`; the command also fails unless the bridge event is
+correlated to the accepted route action. It is a provider-free smoke fixture,
+not a published benchmark scenario.
 
 ## Inspect a finished run
 

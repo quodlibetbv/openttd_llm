@@ -1,0 +1,37 @@
+{
+  "fixture_version": "1.0",
+  "provider": "replay",
+  "model": "phase-06-road-special-link-smoke",
+  "steps": [
+    {
+      "expected_observation_sha256": "3469c07080d86fd6689ecc5a6df87acd16682f00481882d8a37413bd6eb4ea21",
+      "decision": {
+        "decision_id": "phase06-road-special-link-smoke-decision-1",
+        "public_summary": "Connect the fixed smoke-map obstacle route with one bus while retaining the required cash reserve.",
+        "observations": [
+          "The fixed smoke map exposes the obstacle route towns in the authoritative opportunity set.",
+          "The route budget is capped below the available project budget."
+        ],
+        "actions": [
+          {
+            "tool": "build_transport_route",
+            "arguments": {
+              "mode": "road",
+              "source_town_id": 0,
+              "destination_town_id": 1,
+              "cargo": "passengers",
+              "initial_vehicle_count": 1,
+              "maximum_budget": 90000
+            }
+          }
+        ],
+        "next_review_game_days": 30
+      },
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "latency_ms": 0
+      }
+    }
+  ]
+}

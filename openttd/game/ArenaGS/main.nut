@@ -1603,6 +1603,7 @@ class ArenaGS extends GSController {
         local accounting = GSAccounting();
         local vehicle_id = GSVehicle.BuildVehicleWithRefit(project.depot_tile, project.engine_id, project.cargo_id);
         local actual_cost = this.AbsoluteCost(accounting.GetCosts());
+        accounting = null;
         if (!GSVehicle.IsValidVehicle(vehicle_id)) {
             this.FailFleetAdjustment(project, "ARENA-ACTION-VEHICLE-UNSUITABLE", "The native game rejected a compatible route vehicle purchase.");
             return;
@@ -2461,7 +2462,9 @@ class ArenaGS extends GSController {
         local built = drive_through
             ? GSRoad.BuildDriveThroughRoadStation(tile, front, GSRoad.ROADVEHTYPE_BUS, GSStation.STATION_NEW)
             : GSRoad.BuildRoadStation(tile, front, GSRoad.ROADVEHTYPE_BUS, GSStation.STATION_NEW);
-        if (!built || !this.RecordActualSpend(project, accounting.GetCosts(), estimate.cost)) {
+        local actual_cost = accounting.GetCosts();
+        accounting = null;
+        if (!built || !this.RecordActualSpend(project, actual_cost, estimate.cost)) {
             if (built) this.BeginRecovery(project, "ARENA-ACTION-BUDGET-EXCEEDED", "The station command cost changed after preflight and the project stopped safely.");
             else this.BeginRecovery(project, "ARENA-ACTION-STATION-PLACEMENT-FAILED", "The native game rejected the station placement.");
             return false;
@@ -2507,7 +2510,10 @@ class ArenaGS extends GSController {
         }
 
         local accounting = GSAccounting();
-        if (!GSRoad.BuildRoadDepot(project.depot_tile, project.depot_front) || !this.RecordActualSpend(project, accounting.GetCosts(), estimate.cost)) {
+        local built = GSRoad.BuildRoadDepot(project.depot_tile, project.depot_front);
+        local actual_cost = accounting.GetCosts();
+        accounting = null;
+        if (!built || !this.RecordActualSpend(project, actual_cost, estimate.cost)) {
             this.BeginRecovery(project, "ARENA-ACTION-STATION-PLACEMENT-FAILED", "The native game rejected the road depot placement.");
             return false;
         }
@@ -2527,25 +2533,35 @@ class ArenaGS extends GSController {
         local test = GSTestMode();
         local accounting = GSAccounting();
         local success = GSRoad.BuildRoad(from, to);
-        local result = { success = success, cost = this.AbsoluteCost(accounting.GetCosts()) };
-        /* GSTestMode restores the native command mode when the instance is
-         * destroyed. Explicitly release it before returning from high-volume
-         * survey probes so test-mode scopes never accumulate across ticks. */
+        local cost = accounting.GetCosts();
+        /* GSAccounting keeps a stack of active scopes. Explicitly destroy the
+         * inner accounting scope before leaving test mode so later survey
+         * probes and real build commands cannot inherit its costs. */
+        accounting = null;
         test = null;
-        return result;
+        return { success = success, cost = this.AbsoluteCost(cost) };
     }
 
     function EstimateBridge(from, to, bridge_type) {
-        if (!GSMap.IsValidTile(from) || !GSMap.IsValidTile(to) || !GSBridge.IsValidBridge(bridge_type)) {
+        local span = GSMap.IsValidTile(from) && GSMap.IsValidTile(to) ? GSMap.DistanceManhattan(from, to) : 0;
+        if (span < 2 || !GSBridge.IsValidBridge(bridge_type)) {
             return { success = false, cost = 0, bridge_type = bridge_type };
         }
 
         local test = GSTestMode();
         local accounting = GSAccounting();
         local success = GSBridge.BuildBridge(GSVehicle.VT_ROAD, bridge_type, from, to);
+        local cost = accounting.GetCosts();
+        accounting = null;
+        /* GSTestMode queries the bridge command but omits the deterministic
+         * bridge price. The public bridge API exposes that exact component
+         * for the total ramp-inclusive length, so reserve it before allowing
+         * the real command to spend project funds. */
+        local bridge_price = success ? GSBridge.GetPrice(bridge_type, span + 1) : 0;
+        if (bridge_price < 0) success = false;
         local result = {
             success = success,
-            cost = this.AbsoluteCost(accounting.GetCosts()),
+            cost = success ? this.AbsoluteCost(cost) + bridge_price : 0,
             bridge_type = bridge_type,
         };
         test = null;
@@ -2560,9 +2576,11 @@ class ArenaGS extends GSController {
         local test = GSTestMode();
         local accounting = GSAccounting();
         local success = GSTunnel.BuildTunnel(GSVehicle.VT_ROAD, from);
+        local cost = accounting.GetCosts();
+        accounting = null;
         local result = {
             success = success,
-            cost = this.AbsoluteCost(accounting.GetCosts()),
+            cost = this.AbsoluteCost(cost),
             to = to,
         };
         test = null;
@@ -2575,7 +2593,10 @@ class ArenaGS extends GSController {
         local success = drive_through
             ? GSRoad.BuildDriveThroughRoadStation(tile, front, GSRoad.ROADVEHTYPE_BUS, GSStation.STATION_NEW)
             : GSRoad.BuildRoadStation(tile, front, GSRoad.ROADVEHTYPE_BUS, GSStation.STATION_NEW);
-        local result = { success = success, cost = this.AbsoluteCost(accounting.GetCosts()), error = success ? "none" : GSError.GetLastErrorString() };
+        local error = success ? "none" : GSError.GetLastErrorString();
+        local cost = accounting.GetCosts();
+        accounting = null;
+        local result = { success = success, cost = this.AbsoluteCost(cost), error = error };
         test = null;
         return result;
     }
@@ -2584,7 +2605,9 @@ class ArenaGS extends GSController {
         local test = GSTestMode();
         local accounting = GSAccounting();
         local success = GSRoad.BuildRoadDepot(tile, front);
-        local result = { success = success, cost = this.AbsoluteCost(accounting.GetCosts()) };
+        local cost = accounting.GetCosts();
+        accounting = null;
+        local result = { success = success, cost = this.AbsoluteCost(cost) };
         test = null;
         return result;
     }
@@ -2613,12 +2636,16 @@ class ArenaGS extends GSController {
         }
 
         local accounting = GSAccounting();
-        if (!GSRoad.BuildRoad(from, to)) {
-            this.BeginRoadReplan(project, from, GSError.GetLastErrorString());
+        local built = GSRoad.BuildRoad(from, to);
+        local build_error = built ? "none" : GSError.GetLastErrorString();
+        local actual_cost = accounting.GetCosts();
+        accounting = null;
+        if (!built) {
+            this.BeginRoadReplan(project, from, build_error);
             return false;
         }
 
-        if (!this.RecordActualSpend(project, accounting.GetCosts(), estimate.cost)) {
+        if (!this.RecordActualSpend(project, actual_cost, estimate.cost)) {
             this.BeginRecovery(project, "ARENA-ACTION-BUDGET-EXCEEDED", "The native road command cost changed after preflight and the project stopped before exceeding its declared budget.");
             return false;
         }
@@ -2638,13 +2665,19 @@ class ArenaGS extends GSController {
             return false;
         }
 
-        local accounting = GSAccounting();
-        if (!GSBridge.BuildBridge(GSVehicle.VT_ROAD, bridge_type, from, to)) {
-            this.BeginRoadReplan(project, from, GSError.GetLastErrorString());
+        /* GSBridge.BuildBridge may issue follow-up native commands while it
+         * completes. Measure the trusted company balance across the complete
+         * API call so project accounting cannot omit any of that native work. */
+        local cash_before = GSCompany.GetBankBalance(project.company_id);
+        local built = GSBridge.BuildBridge(GSVehicle.VT_ROAD, bridge_type, from, to);
+        local build_error = built ? "none" : GSError.GetLastErrorString();
+        local actual_cost = cash_before - GSCompany.GetBankBalance(project.company_id);
+        if (!built) {
+            this.BeginRoadReplan(project, from, build_error);
             return false;
         }
 
-        if (!this.RecordActualSpend(project, accounting.GetCosts(), estimate.cost)) {
+        if (actual_cost < 0 || !this.RecordActualSpend(project, actual_cost, estimate.cost)) {
             this.BeginRecovery(project, "ARENA-ACTION-BUDGET-EXCEEDED", "The native road bridge cost changed after preflight and the project stopped before exceeding its declared budget.");
             return false;
         }
@@ -2671,12 +2704,16 @@ class ArenaGS extends GSController {
         }
 
         local accounting = GSAccounting();
-        if (!GSTunnel.BuildTunnel(GSVehicle.VT_ROAD, from)) {
-            this.BeginRoadReplan(project, from, GSError.GetLastErrorString());
+        local built = GSTunnel.BuildTunnel(GSVehicle.VT_ROAD, from);
+        local build_error = built ? "none" : GSError.GetLastErrorString();
+        local actual_cost = accounting.GetCosts();
+        accounting = null;
+        if (!built) {
+            this.BeginRoadReplan(project, from, build_error);
             return false;
         }
 
-        if (!this.RecordActualSpend(project, accounting.GetCosts(), estimate.cost)) {
+        if (!this.RecordActualSpend(project, actual_cost, estimate.cost)) {
             this.BeginRecovery(project, "ARENA-ACTION-BUDGET-EXCEEDED", "The native road tunnel cost changed after preflight and the project stopped before exceeding its declared budget.");
             return false;
         }
@@ -2746,7 +2783,9 @@ class ArenaGS extends GSController {
 
         local accounting = GSAccounting();
         local vehicle_id = GSVehicle.BuildVehicleWithRefit(project.depot_tile, project.engine_id, project.cargo_id);
-        if (!GSVehicle.IsValidVehicle(vehicle_id) || !this.RecordActualSpend(project, accounting.GetCosts(), estimate.cost)) {
+        local actual_cost = accounting.GetCosts();
+        accounting = null;
+        if (!GSVehicle.IsValidVehicle(vehicle_id) || !this.RecordActualSpend(project, actual_cost, estimate.cost)) {
             this.BeginRecovery(project, "ARENA-ACTION-VEHICLE-UNSUITABLE", "The native game rejected a passenger vehicle purchase.");
             return;
         }
@@ -2778,7 +2817,9 @@ class ArenaGS extends GSController {
         local test = GSTestMode();
         local accounting = GSAccounting();
         local vehicle_id = GSVehicle.BuildVehicleWithRefit(depot_tile, engine_id, cargo_id);
-        local result = { success = vehicle_id == 0, cost = this.AbsoluteCost(accounting.GetCosts()) };
+        local cost = accounting.GetCosts();
+        accounting = null;
+        local result = { success = vehicle_id == 0, cost = this.AbsoluteCost(cost) };
         test = null;
         return result;
     }
