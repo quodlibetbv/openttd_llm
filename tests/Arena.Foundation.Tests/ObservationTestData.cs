@@ -24,6 +24,7 @@ internal static class ObservationTestData
                 Loan = 0,
                 QuarterlyIncome = 10_000,
                 QuarterlyExpenses = 4_000,
+                QuarterlyCargoDelivered = 250,
                 CompanyValue = 110_000,
                 PerformanceRating = 50,
             },

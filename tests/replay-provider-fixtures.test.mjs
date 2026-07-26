@@ -50,6 +50,25 @@ test("the Phase 06 replay road fixture is sanitized and selects one typed route 
   assert.equal(fixture.steps[0].decision.actions[0].tool, "build_transport_route");
 });
 
+test("the Phase 06 special-link replay fixture is sanitized and selects the fixed obstacle route", () => {
+  const fixturePath = join(repositoryRoot, "replays", "phase-06-road-special-link-smoke.v1.json");
+  const modelDecisionSchemaPath = join(repositoryRoot, "schemas", "actions", "model-decision.v1.json");
+  const fixtureText = readFileSync(fixturePath, "utf8");
+  const fixture = JSON.parse(fixtureText);
+  const modelDecisionSchema = JSON.parse(readFileSync(modelDecisionSchemaPath, "utf8"));
+  const action = fixture.steps[0].decision.actions[0];
+
+  assert.deepEqual(scanTextForSecrets(fixtureText), []);
+  assert.equal(fixture.fixture_version, "1.0");
+  assert.equal(fixture.provider, "replay");
+  assert.equal(fixture.steps.length, 1);
+  assert.match(fixture.steps[0].expected_observation_sha256, /^[0-9a-f]{64}$/);
+  assert.deepEqual(validateInstance(fixture.steps[0].decision, modelDecisionSchema), []);
+  assert.equal(action.tool, "build_transport_route");
+  assert.equal(action.arguments.source_town_id, 0);
+  assert.equal(action.arguments.destination_town_id, 1);
+});
+
 test("synthetic observation fixtures cover the declared strategic states", () => {
   const fixtureDirectory = join(repositoryRoot, "tests", "fixtures", "observations");
   const observationSchemaPath = join(repositoryRoot, "schemas", "observations", "observation.v1.json");

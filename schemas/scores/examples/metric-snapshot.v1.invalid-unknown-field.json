@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "run_id": "run-0001",
+  "sample_id": "metric-final-1",
+  "kind": "final",
+  "source": "gamescript",
+  "game_date": "1950-01-01",
+  "game_tick": 74,
+  "metrics": {},
+  "from_overlay": true
+}

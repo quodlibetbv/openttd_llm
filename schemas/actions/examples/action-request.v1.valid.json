@@ -7,5 +7,16 @@
   "tool": "wait",
   "arguments": {
     "game_days": 30
+  },
+  "constraint_context": {
+    "scenario_id": "road-profit",
+    "scenario_version": "1.0.0",
+    "scenario_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "minimum_cash_reserve": 10000,
+    "per_project_budget": 90000,
+    "maximum_active_projects": 1,
+    "allowed_modes": ["road"],
+    "allowed_cargo": ["passengers"],
+    "allowed_tools": ["wait"]
   }
 }

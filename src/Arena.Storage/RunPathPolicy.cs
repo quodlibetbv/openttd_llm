@@ -16,6 +16,8 @@ public sealed class RunPathPolicy
             : _runRoot + Path.DirectorySeparatorChar;
     }
 
+    public string Root => _runRoot;
+
     public string Resolve(string relativePath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(relativePath);

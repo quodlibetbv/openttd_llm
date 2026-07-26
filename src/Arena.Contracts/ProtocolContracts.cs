@@ -289,6 +289,10 @@ public sealed record ActionRequest
 
     [JsonPropertyName("arguments")]
     public required JsonElement Arguments { get; init; }
+
+    [JsonPropertyName("constraint_context")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ScenarioActionConstraintContext? ConstraintContext { get; init; }
 }
 
 public sealed record ActionResult

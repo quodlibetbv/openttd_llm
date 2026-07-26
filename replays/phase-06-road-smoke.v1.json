@@ -4,12 +4,12 @@
   "model": "phase-06-road-smoke",
   "steps": [
     {
-      "expected_observation_sha256": "21f40d179551726aa364ee555259ff899ef770e98db64c9b5955b43f599b514e",
+      "expected_observation_sha256": "3469c07080d86fd6689ecc5a6df87acd16682f00481882d8a37413bd6eb4ea21",
       "decision": {
         "decision_id": "phase06-road-smoke-decision-1",
-        "public_summary": "Connect the two nearby smoke-map towns with one passenger bus while retaining the required cash reserve.",
+        "public_summary": "Connect the certified smoke-map passenger opportunity with one bus while retaining the required cash reserve.",
         "observations": [
-          "The fixed smoke map exposes both towns in the authoritative opportunity set.",
+          "The fixed smoke map exposes the selected towns in the authoritative opportunity set.",
           "The route budget is capped below the available project budget."
         ],
         "actions": [
@@ -17,8 +17,8 @@
             "tool": "build_transport_route",
             "arguments": {
               "mode": "road",
-              "source_town_id": 0,
-              "destination_town_id": 1,
+              "source_town_id": 3,
+              "destination_town_id": 7,
               "cargo": "passengers",
               "initial_vehicle_count": 1,
               "maximum_budget": 90000

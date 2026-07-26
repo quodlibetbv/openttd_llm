@@ -1,13 +1,26 @@
 {
   "schema_version": "1.0",
   "run_id": "run-0001",
+  "scenario_id": "road-profit",
+  "scenario_version": "1.0.0",
+  "formula_id": "road-profit-v1",
+  "final_metrics_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   "total_score": 12.5,
+  "total_penalty": 0,
   "components": [
     {
-      "key": "foundation_completion",
+      "key": "solvency_completion",
+      "metric": "solvency_completion",
+      "units": "boolean",
       "value": 1,
+      "baseline": 0,
+      "cap": 1,
+      "normalization": "clamp_linear",
+      "normalized_value": 1,
       "weight": 12.5,
-      "contribution": 12.5
+      "contribution": 12.5,
+      "missing_data_behavior": "zero",
+      "penalty_interaction": "subtract_after_component_normalization"
     }
   ]
 }

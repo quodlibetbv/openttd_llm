@@ -13,6 +13,9 @@ public sealed record BenchmarkInputHashes
     [JsonPropertyName("scenario_sha256")]
     public required string ScenarioSha256 { get; init; }
 
+    [JsonPropertyName("scenario_schema_sha256")]
+    public required string ScenarioSchemaSha256 { get; init; }
+
     [JsonPropertyName("game_settings_sha256")]
     public required string GameSettingsSha256 { get; init; }
 
@@ -62,6 +65,18 @@ public sealed record ContractVersionsUsed
     public required string Manifest { get; init; }
 }
 
+public sealed record ArtifactHash
+{
+    [JsonPropertyName("relative_path")]
+    public required string RelativePath { get; init; }
+
+    [JsonPropertyName("sha256")]
+    public required string Sha256 { get; init; }
+
+    [JsonPropertyName("byte_length")]
+    public required long ByteLength { get; init; }
+}
+
 public sealed record RunManifest
 {
     [JsonPropertyName("schema_version")]
@@ -85,9 +100,18 @@ public sealed record RunManifest
     [JsonPropertyName("model")]
     public required string Model { get; init; }
 
+    [JsonPropertyName("scenario_id")]
+    public required string ScenarioId { get; init; }
+
+    [JsonPropertyName("scenario_version")]
+    public required string ScenarioVersion { get; init; }
+
     [JsonPropertyName("contract_versions")]
     public required ContractVersionsUsed ContractVersions { get; init; }
 
     [JsonPropertyName("benchmark_input_hashes")]
     public required BenchmarkInputHashes BenchmarkInputHashes { get; init; }
+
+    [JsonPropertyName("artifact_hashes")]
+    public required IReadOnlyList<ArtifactHash> ArtifactHashes { get; init; }
 }

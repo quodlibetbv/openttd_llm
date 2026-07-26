@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0",
+  "published_scenarios": [
+    {
+      "scenario_id": "road-profit",
+      "version": "1.0.0",
+      "sha256": "18404e13f700b50858187590b62ae28f88f809b465f29fe761c7663d3195eeb6"
+    }
+  ]
+}

@@ -117,6 +117,20 @@ public sealed class ObservationBuilderTests
     }
 
     [Fact]
+    public void PreservesTheNormalizedPositiveExpenseConventionWhenCalculatingQuarterlyProfit()
+    {
+        ObservationBuildResult result = ObservationBuilder.Build(
+            ObservationTestData.CreateGameSnapshot(),
+            ObservationTestData.CreateContext());
+
+        ObservationFinancialSummary financials = result.Snapshot.Sections.FinancialSummary;
+
+        Assert.Equal(10_000, financials.QuarterlyIncome);
+        Assert.Equal(4_000, financials.QuarterlyExpenses);
+        Assert.Equal(6_000, financials.QuarterlyProfit);
+    }
+
+    [Fact]
     public void RejectsAnObservationThatExceedsItsDeclaredReductionBudget()
     {
         ObservationBuildContext context = ObservationTestData.CreateContext() with

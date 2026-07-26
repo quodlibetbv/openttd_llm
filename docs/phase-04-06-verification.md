@@ -27,6 +27,7 @@ Run each command from the repository root. Every command allocates a fresh `.run
 | `pwsh ./scripts/ttd-arena.ps1 observation-smoke` | ArenaGS emits an authoritative snapshot and the orchestrator writes a bounded canonical observation. | `observations.ndjson`, `game-events.ndjson`, `bridge-result.json` |
 | `pwsh ./scripts/ttd-arena.ps1 observations replay <run-directory>` | Recorded snapshot/delta hashes replay to the reported human-readable state without OpenTTD. | CLI replay output and `observations.ndjson` |
 | `pwsh ./scripts/ttd-arena.ps1 road-smoke` | A replayed `ModelDecision` builds and verifies a passenger road route. | `decisions.ndjson`, `actions.ndjson`, project events, `bridge-result.json` |
+| `pwsh ./scripts/ttd-arena.ps1 road-special-link-smoke` | A fixed obstacle route creates a native bridge and then verifies one operational passenger route within budget. | `ARENA-BRIDGE-CREATED`, `ARENA-ROUTE-OPERATING`, and `native-special-link` in `bridge-result.json` |
 | `pwsh ./scripts/ttd-arena.ps1 fleet-smoke` | A completed route accepts a fleet expansion exactly once and remains operational. | fleet action/result records and `fleet-idempotency` check |
 | `pwsh ./scripts/ttd-arena.ps1 road-budget-smoke` | A deliberately impossible project budget fails before construction and recovers without created route assets. | budget failure event and `budget-recovery` check |
 
@@ -53,6 +54,30 @@ pwsh ./scripts/road-soak.ps1
 ```
 
 The script stops at the first failed run and preserves its run directory for diagnosis. `-Count`, `-Config`, and timeout parameters are available for focused local investigation; the default count is the Phase 06 acceptance count of twenty.
+
+## Native bridge and tunnel links
+
+The road executor persists every surveyed path edge as a typed native link. It
+uses ordinary road edges first; when ordinary progress toward the target is
+blocked, it makes a bounded, deterministic set of native bridge/tunnel
+test-mode probes (maximum 24-tile span and 16 special-link probes per search
+node). Each special link must have a straight ordinary-road approach and exit;
+the search rejects turns across bridge or tunnel ramps because those native
+commands can replace perpendicular road halves. A legacy road-only saved project is migrated only when every stored edge
+is adjacent; otherwise it safely enters recovery rather than guessing topology.
+
+The stock replay smoke route does not deliberately require an obstacle link, so
+the absence of these events from an ordinary `road-smoke` run is expected. Use
+the dedicated fixed obstacle route to prove the bridge boundary instead:
+
+```powershell
+pwsh ./scripts/ttd-arena.ps1 road-special-link-smoke
+```
+
+The run must include both `ARENA-BRIDGE-CREATED` and
+`ARENA-ROUTE-OPERATING`; the command also fails unless the bridge event is
+correlated to the accepted route action. It is a provider-free smoke fixture,
+not a published benchmark scenario.
 
 ## Inspect a finished run
 

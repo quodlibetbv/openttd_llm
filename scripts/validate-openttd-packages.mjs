@@ -33,8 +33,29 @@ export function validateOpenTtdPackages() {
       !/PROTOCOL_VERSION = "1\.0"/.test(gameMain) ||
       !/function ReplayLedgerResult\(/.test(gameMain) ||
       !/function AcceptChunk\(/.test(gameMain) ||
-      !/ARENA-PROTOCOL-CHUNK-TIMEOUT/.test(gameMain)) {
-    errors.push("ArenaGS must expose the Phase 03 persisted AdminPort protocol boundary.");
+      !/ARENA-PROTOCOL-CHUNK-TIMEOUT/.test(gameMain) ||
+      !/function IsValidScenarioConstraintContext\(/.test(gameMain) ||
+      !/if \(action\.rawin\("constraint_context"\) && !this\.ScenarioAllowsTool\(action\)\)/.test(gameMain) ||
+      !/action\.tool == "repay_loan" &&\s*GSCompany\.GetBankBalance\(company_id\) - amount < action\.constraint_context\.minimum_cash_reserve/.test(gameMain) ||
+      !/quarterly_expenses = this\.NonNegative\(-GSCompany\.GetQuarterlyExpenses\(company_id, GSCompany\.CURRENT_QUARTER\)\)/.test(gameMain) ||
+      !/function EnsurePersistedPathLinks\(/.test(gameMain) ||
+      !/MAX_SPECIAL_LINK_SPAN/.test(gameMain) ||
+      !/GSBridge\.BuildBridge\(GSVehicle\.VT_ROAD/.test(gameMain) ||
+      !/GSTunnel\.BuildTunnel\(GSVehicle\.VT_ROAD/.test(gameMain) ||
+      !/ARENA-BRIDGE-CREATED/.test(gameMain) ||
+      !/ARENA-TUNNEL-CREATED/.test(gameMain)) {
+    errors.push("ArenaGS must expose the Phase 03-07 persisted AdminPort, scenario-constraint, and bounded native-road-link boundary.");
+  }
+
+  const accountingScopes = [...gameMain.matchAll(/local accounting = GSAccounting\(\);/g)].length;
+  const accountingReleases = [...gameMain.matchAll(/accounting = null;/g)].length;
+  if (accountingScopes === 0 || accountingScopes !== accountingReleases) {
+    errors.push("ArenaGS must explicitly release every GSAccounting scope before another native command can inherit its costs.");
+  }
+
+  if (!/function EstimateBridge\([\s\S]*?GSBridge\.GetPrice\(bridge_type, span \+ 1\)/.test(gameMain) ||
+      !/local cash_before = GSCompany\.GetBankBalance\(project\.company_id\);[\s\S]*?local actual_cost = cash_before - GSCompany\.GetBankBalance\(project\.company_id\);/.test(gameMain)) {
+    errors.push("ArenaGS must reserve the native bridge price during preflight and measure complete bridge spend from the benchmark company balance.");
   }
 
   if (!/class ModelProxyAIInfo extends AIInfo/.test(aiInfo) || !/RegisterAI\(ModelProxyAIInfo\(\)\);/.test(aiInfo)) {
@@ -70,6 +91,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
 
     process.exitCode = 1;
   } else {
-    console.log("OpenTTD package metadata is valid for Phases 03-06");
+    console.log("OpenTTD package metadata is valid for Phases 03-07");
   }
 }

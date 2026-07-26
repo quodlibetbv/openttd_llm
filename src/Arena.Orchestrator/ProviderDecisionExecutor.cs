@@ -11,7 +11,8 @@ public sealed record ProviderDecisionExecutionOptions(
     TimeSpan RequestTimeout,
     int? MaximumSchemaCorrectionRetries = null,
     int MaximumActions = 8,
-    bool ResumeAfterActionHandling = true)
+    bool ResumeAfterActionHandling = true,
+    ScenarioActionConstraintContext? ConstraintContext = null)
 {
     public void Validate()
     {
@@ -125,20 +126,7 @@ public sealed class ProviderDecisionExecutor
             await artifacts.AppendEventAsync(eventEntry, cancellationToken);
         }
 
-        ModelRequest request = new()
-        {
-            RunId = options.ObservationContext.RunId,
-            DecisionId = options.DecisionId,
-            ObservationHash = observation.Sha256,
-            ReplayObservationHash = observation.ReplaySha256,
-            Observation = observation.CanonicalJson,
-            AvailableTools = options.ObservationContext.AllowedTools.OrderBy(tool => tool, StringComparer.Ordinal).ToArray(),
-            RemainingModelCalls = options.ObservationContext.RemainingModelCalls,
-            RemainingOutputTokens = options.ObservationContext.RemainingOutputTokens,
-            MaximumActions = options.MaximumActions,
-            PromptTemplateVersion = ArenaPromptTemplate.Version,
-            PromptTemplateSha256 = ArenaPromptTemplate.Sha256,
-        };
+        ModelRequest request = ProviderRequestFactory.Create(observation, options);
         ProviderDecisionLoopResult providerResult = await ProviderDecisionLoop.GetDecisionAsync(
             provider,
             request,
@@ -197,11 +185,23 @@ public sealed class ProviderDecisionExecutor
         for (int index = 0; index < decision.Actions.Count; index++)
         {
             ModelAction modelAction = decision.Actions[index];
-            ActionRequest actionRequest = CreateActionRequest(request.RunId, decision.DecisionId, modelAction, index);
+            ActionRequest actionRequest = CreateActionRequest(
+                request.RunId,
+                decision.DecisionId,
+                modelAction,
+                index,
+                options.ConstraintContext);
             RoadActionValidationResult validation = RoadActionValidator.Validate(
                 modelAction,
                 observation.Snapshot,
                 request.AvailableTools.ToHashSet(StringComparer.Ordinal));
+            if (validation.IsValid)
+            {
+                validation = ScenarioActionConstraintValidator.Validate(
+                    modelAction,
+                    observation.Snapshot,
+                    options.ConstraintContext);
+            }
             ActionResult actionResult;
             if (!validation.IsValid)
             {
@@ -279,7 +279,8 @@ public sealed class ProviderDecisionExecutor
         string runId,
         string decisionId,
         ModelAction action,
-        int index)
+        int index,
+        ScenarioActionConstraintContext? constraintContext)
     {
         string suffix = $"-{index + 1}";
         string prefix = decisionId.Length > 110 ? decisionId[..110] : decisionId;
@@ -294,6 +295,7 @@ public sealed class ProviderDecisionExecutor
             IdempotencyKey = "idempotency-" + prefix + suffix,
             Tool = action.Tool,
             Arguments = action.Arguments.Clone(),
+            ConstraintContext = constraintContext,
         };
     }
 

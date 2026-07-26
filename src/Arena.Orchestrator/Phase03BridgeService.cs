@@ -52,6 +52,8 @@ public sealed record Phase03BridgeExtensionContext(
     ArenaLocalConfiguration Configuration,
     AdminPortBridgeClient Bridge,
     TimeSpan RequestTimeout,
+    string StartingSavePath,
+    string GameSettingsPath,
     IPhase03SaveLoadController? SaveLoadController = null);
 
 public sealed record Phase03BridgeExtensionResult(
@@ -152,6 +154,7 @@ public sealed class Phase03BridgeService
         IManagedArenaProcess? server = null;
         AdminPortBridgeClient? client = null;
         IPhase03SaveLoadController? saveLoadController = null;
+        string? startingSavePath = null;
         string? secretPath = null;
         string? errorCode = null;
         bool succeeded = false;
@@ -168,6 +171,7 @@ public sealed class Phase03BridgeService
                 "server",
                 ServerComponentId,
                 cancellationToken);
+            startingSavePath = await CopyFixedStartingSaveAsync(configuration, allocation.Paths, cancellationToken);
 
             CredentialReadResult credential = await _credentialStore.ReadAsync(
                 configuration.OpenTtd.AdminCredentialReference,
@@ -188,7 +192,7 @@ public sealed class Phase03BridgeService
                     cancellationToken);
 
                 state = await TransitionAsync(journal, ArenaRunState.StartingServer, ServerComponentId, cancellationToken);
-                server = await StartServerAsync(configuration, workspace, cancellationToken);
+                server = await StartServerAsync(configuration, workspace, startingSavePath, cancellationToken);
                 state = await TransitionAsync(journal, ArenaRunState.WaitingForGameScript, ServerComponentId, cancellationToken);
                 bool listening = await _readinessProbe.WaitForPortAsync(
                     configuration.Network.BindAddress,
@@ -279,6 +283,8 @@ public sealed class Phase03BridgeService
                         configuration,
                         client,
                         options.RequestTimeout,
+                        startingSavePath,
+                        workspace.ConfigurationPath,
                         saveLoadController),
                     cancellationToken);
                 checks.AddRange(extensionResult.Checks);
@@ -760,6 +766,7 @@ public sealed class Phase03BridgeService
     private async Task<IManagedArenaProcess> StartServerAsync(
         ArenaLocalConfiguration configuration,
         Phase02ServerWorkspace workspace,
+        string startingSavePath,
         CancellationToken cancellationToken) =>
         await _processFactory.StartAsync(
             new OpenTtdProcessStartRequest(
@@ -773,13 +780,35 @@ public sealed class Phase03BridgeService
                     "-c",
                     workspace.ConfigurationPath,
                     "-g",
-                    "-G",
-                    Phase02SmokeDefaults.StartingSaveSeed.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    startingSavePath,
                 ],
                 workspace.StandardOutputLogPath,
                 workspace.StandardErrorLogPath,
                 HasWindow: false),
             cancellationToken);
+
+    private static async Task<string> CopyFixedStartingSaveAsync(
+        ArenaLocalConfiguration configuration,
+        RunPathPolicy paths,
+        CancellationToken cancellationToken)
+    {
+        string cachePath = Phase02RunPreparation.GetStartingSaveCachePath(configuration);
+        if (!File.Exists(cachePath) || (File.GetAttributes(cachePath) & FileAttributes.ReparsePoint) != 0)
+        {
+            throw new BridgeSmokeException(
+                ArenaErrorCodes.RunArtifactMissing,
+                "The fixed Phase 02 starting save is unavailable. Run the Phase 02 smoke once before starting a bridge or benchmark run.");
+        }
+
+        paths.CreateDirectory("input");
+        string destination = paths.Resolve("input/starting-save.sav");
+        using FileStream input = new(cachePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        await using FileStream output = new(destination, FileMode.CreateNew, FileAccess.Write, FileShare.Read, 16 * 1024, FileOptions.Asynchronous | FileOptions.WriteThrough);
+        await input.CopyToAsync(output, cancellationToken);
+        await output.FlushAsync(cancellationToken);
+        output.Flush(flushToDisk: true);
+        return destination;
+    }
 
     private async Task StopServerAsync(
         IManagedArenaProcess server,

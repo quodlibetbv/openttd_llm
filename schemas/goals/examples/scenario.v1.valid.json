@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.0",
+  "scenario_id": "road-profit-smoke",
+  "version": "1.0.0",
+  "title": "Road Profit Smoke v1",
+  "world": {
+    "starting_save_id": "phase-02-smoke-v1",
+    "content_manifest_id": "certified-openttd-content-v1",
+    "game_settings_id": "phase-02-server-v1",
+    "start_date": "1950-01-01"
+  },
+  "objective": "Open one solvent passenger road route.",
+  "allowed_tools": ["build_transport_route", "wait"],
+  "constraints": {
+    "minimum_cash_reserve": 10000,
+    "per_project_budget": 90000,
+    "maximum_active_projects": 1,
+    "allowed_modes": ["road"],
+    "allowed_cargo": ["passengers"]
+  },
+  "model_budget": { "maximum_calls": 1, "maximum_output_tokens": 1000, "maximum_retries": 1 },
+  "objectives": [
+    { "objective_id": "operational-route", "metric": "operational_route_count", "minimum": 1 }
+  ],
+  "penalties": [
+    { "key": "invalid_decision", "trigger": "invalid_decision", "points": 10 },
+    { "key": "constraint_violation", "trigger": "constraint_violation", "points": 20 }
+  ],
+  "end_condition": { "type": "goal_completed", "value": "operational-route" },
+  "scoring": {
+    "score_schema_version": "1.0",
+    "formula_id": "road-profit-v1",
+    "components": [
+      { "key": "operating_profit", "metric": "operating_profit", "units": "game_money_per_quarter", "baseline": 0, "cap": 20000, "weight": 25, "missing_data_behavior": "zero", "penalty_interaction": "subtract_after_component_normalization" },
+      { "key": "company_value", "metric": "company_value", "units": "game_money", "baseline": 100000, "cap": 250000, "weight": 15, "missing_data_behavior": "zero", "penalty_interaction": "subtract_after_component_normalization" },
+      { "key": "cargo_delivered", "metric": "cargo_delivered", "units": "passengers_per_quarter", "baseline": 0, "cap": 500, "weight": 15, "missing_data_behavior": "zero", "penalty_interaction": "subtract_after_component_normalization" },
+      { "key": "profit_per_active_vehicle", "metric": "profit_per_active_vehicle", "units": "game_money_per_vehicle_per_quarter", "baseline": 0, "cap": 10000, "weight": 15, "missing_data_behavior": "zero", "penalty_interaction": "subtract_after_component_normalization" },
+      { "key": "return_on_infrastructure", "metric": "return_on_infrastructure", "units": "ratio", "baseline": 0, "cap": 1, "weight": 15, "missing_data_behavior": "zero", "penalty_interaction": "subtract_after_component_normalization" },
+      { "key": "solvency_completion", "metric": "solvency_completion", "units": "boolean", "baseline": 0, "cap": 1, "weight": 15, "missing_data_behavior": "zero", "penalty_interaction": "subtract_after_component_normalization" }
+    ]
+  },
+  "observation": { "ranking_rule": "population_then_distance", "maximum_canonical_bytes": 12288, "maximum_estimated_tokens": 4096 },
+  "camera_relevance_hints": ["route-construction"],
+  "replay_tolerances": {
+    "cash": 5000,
+    "operating_profit": 5000,
+    "company_value": 5000,
+    "cargo_delivered": 20,
+    "active_vehicle_count": 0,
+    "operational_route_count": 0,
+    "infrastructure_investment": 1000
+  }
+}

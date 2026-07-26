@@ -7,6 +7,6 @@ test("provider adapters cannot reference OpenTTD execution internals", () => {
   assert.deepEqual(checkArchitecture(), []);
 });
 
-test("the OpenTTD Phase 03-06 package boundary preserves readiness and validates AdminPort", () => {
+test("the OpenTTD Phase 03-07 package boundary preserves readiness, AdminPort, scenario constraints, and bounded native road links", () => {
   assert.deepEqual(validateOpenTtdPackages(), []);
 });

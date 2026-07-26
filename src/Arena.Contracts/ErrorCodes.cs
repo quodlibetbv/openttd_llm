@@ -65,6 +65,10 @@ public static class ArenaErrorCodes
     public const string RunFinalizationFailed = "ARENA-RUN-FINALIZATION-FAILED";
     public const string RunConsoleControlFailed = "ARENA-RUN-CONSOLE-CONTROL-FAILED";
     public const string RunArtifactMissing = "ARENA-RUN-ARTIFACT-MISSING";
+    public const string ScenarioInvalid = "ARENA-SCENARIO-INVALID";
+    public const string ScenarioPublicationConflict = "ARENA-SCENARIO-PUBLICATION-CONFLICT";
+    public const string ScoreRecalculationMismatch = "ARENA-SCORE-RECALCULATION-MISMATCH";
+    public const string ReplayMetricsMismatch = "ARENA-REPLAY-METRICS-MISMATCH";
 }
 
 public sealed record ArenaError(

@@ -3,9 +3,11 @@
   "run_id": "run-0001",
   "created_utc": "2026-07-23T12:00:00Z",
   "application_version": "0.1.0",
-  "git_commit": "926def4",
+  "git_commit": "926def4b7838dc4501ed96a5bbf213e5bf1f4c4a",
   "provider": "replay",
   "model": "foundation-fixture",
+  "scenario_id": "road-profit",
+  "scenario_version": "1.0.0",
   "contract_versions": {
     "protocol": "1.0",
     "observation": "1.0",
@@ -18,6 +20,7 @@
     "starting_save_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "content_manifest_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "scenario_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "scenario_schema_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "game_settings_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "prompt_template_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "tool_contract_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
@@ -27,5 +30,12 @@
     "protocol_schema_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "retry_policy_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "end_condition_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-  }
+  },
+  "artifact_hashes": [
+    {
+      "relative_path": "final-save.sav",
+      "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "byte_length": 1024
+    }
+  ]
 }

@@ -23,6 +23,8 @@ public interface IPhase03SaveLoadController
     Task<Phase03SaveLoadResult> SaveAndReloadAsync(
         string checkpointName,
         CancellationToken cancellationToken);
+
+    Task<Phase03SaveLoadResult> SaveFinalAsync(CancellationToken cancellationToken);
 }
 
 internal sealed class Phase03SaveLoadController : IPhase03SaveLoadController
@@ -59,12 +61,44 @@ internal sealed class Phase03SaveLoadController : IPhase03SaveLoadController
         string checkpointName,
         CancellationToken cancellationToken)
     {
+        Phase03SaveLoadResult saved = await SaveArtifactAsync(
+            checkpointName,
+            Path.Combine("checkpoints", checkpointName + ".sav"),
+            cancellationToken);
+        if (!saved.Succeeded)
+        {
+            return saved;
+        }
+
+        try
+        {
+            await _consoleBridge.SendAsync(_server.ProcessId, OpenTtdConsoleCommand.Load(checkpointName), cancellationToken);
+            return new Phase03SaveLoadResult(
+                true,
+                null,
+                "The isolated server saved and began loading the generated run-local checkpoint.");
+        }
+        catch (OpenTtdConsoleControlException)
+        {
+            return new Phase03SaveLoadResult(
+                false,
+                ArenaErrorCodes.RunConsoleControlFailed,
+                "The dedicated OpenTTD console did not accept the supervisor checkpoint command.");
+        }
+    }
+
+    public Task<Phase03SaveLoadResult> SaveFinalAsync(CancellationToken cancellationToken) =>
+        SaveArtifactAsync("final-save", "final-save.sav", cancellationToken);
+
+    private async Task<Phase03SaveLoadResult> SaveArtifactAsync(
+        string checkpointName,
+        string relativeArtifactPath,
+        CancellationToken cancellationToken)
+    {
         OpenTtdConsoleCommand save;
-        OpenTtdConsoleCommand load;
         try
         {
             save = OpenTtdConsoleCommand.Save(checkpointName);
-            load = OpenTtdConsoleCommand.Load(checkpointName);
         }
         catch (ArgumentException)
         {
@@ -94,14 +128,18 @@ internal sealed class Phase03SaveLoadController : IPhase03SaveLoadController
                     "OpenTTD did not finish the requested checkpoint save before the bounded timeout.");
             }
 
-            _paths.CreateDirectory("checkpoints");
-            string artifactPath = _paths.Resolve(Path.Combine("checkpoints", checkpointName + ".sav"));
+            string? parent = Path.GetDirectoryName(relativeArtifactPath);
+            if (!string.IsNullOrWhiteSpace(parent))
+            {
+                _paths.CreateDirectory(parent);
+            }
+
+            string artifactPath = _paths.Resolve(relativeArtifactPath);
             File.Copy(serverSavePath, artifactPath, overwrite: false);
-            await _consoleBridge.SendAsync(_server.ProcessId, load, cancellationToken);
             return new Phase03SaveLoadResult(
                 true,
                 null,
-                "The isolated server saved and began loading the generated run-local checkpoint.");
+                "The isolated server saved a verified run-local artifact.");
         }
         catch (OpenTtdConsoleControlException)
         {

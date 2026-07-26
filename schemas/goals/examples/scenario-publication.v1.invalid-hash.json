@@ -1,0 +1,6 @@
+{
+  "schema_version": "1.0",
+  "published_scenarios": [
+    { "scenario_id": "road-profit", "version": "1.0.0", "sha256": "not-a-hash" }
+  ]
+}

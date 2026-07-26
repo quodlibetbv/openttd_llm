@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using OpenTtd.ModelArena.Contracts;
 using OpenTtd.ModelArena.Obs;
 using OpenTtd.ModelArena.Orchestrator;
+using OpenTtd.ModelArena.Providers;
 using OpenTtd.ModelArena.Storage;
 
 namespace OpenTtd.ModelArena.Cli;
@@ -23,7 +24,7 @@ public static class ArenaCommandLine
         {
             if (args.Length == 1 && string.Equals(args[0], "--version", StringComparison.Ordinal))
             {
-                Console.WriteLine("ttd-arena 0.6.0 (Phase 04-06 road MVP)");
+                Console.WriteLine("ttd-arena 0.7.0 (Phase 07 road-profit benchmark MVP)");
                 return 0;
             }
 
@@ -47,10 +48,18 @@ public static class ArenaCommandLine
                 "bridge-smoke" => await RunBridgeSmokeAsync(repositoryRoot, args[1..], cancellationToken),
                 "observation-smoke" => await RunObservationSmokeAsync(repositoryRoot, args[1..], cancellationToken),
                 "road-smoke" => await RunRoadSmokeAsync(repositoryRoot, args[1..], cancellationToken),
+                "road-special-link-smoke" => await RunRoadSpecialLinkSmokeAsync(repositoryRoot, args[1..], cancellationToken),
                 "fleet-smoke" => await RunFleetSmokeAsync(repositoryRoot, args[1..], cancellationToken),
                 "road-save-load-smoke" => await RunRoadSaveLoadSmokeAsync(repositoryRoot, args[1..], cancellationToken),
                 "road-budget-smoke" => await RunRoadBudgetSmokeAsync(repositoryRoot, args[1..], cancellationToken),
                 "provider-road-smoke" => await RunProviderRoadSmokeAsync(repositoryRoot, args[1..], cancellationToken),
+                "road-constraint-smoke" => await RunRoadConstraintSmokeAsync(repositoryRoot, args[1..], cancellationToken),
+                "benchmark-smoke" => await RunBenchmarkSmokeAsync(repositoryRoot, args[1..], cancellationToken),
+                "benchmark" => await RunBenchmarkAsync(repositoryRoot, args[1..], cancellationToken),
+                "scenarios" => await RunScenariosAsync(repositoryRoot, args[1..], cancellationToken),
+                "score" => await RunScoreAsync(repositoryRoot, args[1..], cancellationToken),
+                "verify-run" => await RunVerifyRunAsync(repositoryRoot, args[1..], cancellationToken),
+                "actions" => await RunActionsAsync(repositoryRoot, args[1..], cancellationToken),
                 "observations" => await RunObservationsAsync(repositoryRoot, args[1..], cancellationToken),
                 "credentials" => await RunCredentialsAsync(repositoryRoot, args[1..], cancellationToken),
                 "providers" => await RunProvidersAsync(repositoryRoot, args[1..], cancellationToken),
@@ -247,6 +256,216 @@ public static class ArenaCommandLine
             {
                 Console.WriteLine($"  latest event: {latest.LatestEventCode}");
             }
+        }
+        else
+        {
+            Console.Error.WriteLine($"{result.ErrorCode}: {SecretRedactor.Redact(result.Detail)}");
+        }
+
+        return result.Succeeded ? 0 : 2;
+    }
+
+    private static async Task<int> RunScenariosAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (arguments.Count == 0 || IsHelp(arguments[0]))
+        {
+            Console.WriteLine("Usage: ttd-arena scenarios <validate|publish> <scenario.yaml> [--catalog <path>] [--json]");
+            return arguments.Count == 0 ? 1 : 0;
+        }
+
+        return arguments[0] switch
+        {
+            "validate" => await ValidateScenarioAsync(repositoryRoot, arguments.Skip(1).ToArray(), cancellationToken),
+            "publish" => await PublishScenarioAsync(repositoryRoot, arguments.Skip(1).ToArray(), cancellationToken),
+            _ => UnknownCommand($"scenarios {arguments[0]}"),
+        };
+    }
+
+    private static async Task<int> ValidateScenarioAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (!TryParseOptions(arguments, ["--catalog", "--json"], out CliOptions options) || options.Positionals.Count != 1)
+        {
+            return WriteUsageError("Usage: ttd-arena scenarios validate <scenario.yaml> [--catalog <path>] [--json]");
+        }
+
+        string scenarioPath = ResolveRepositoryPath(repositoryRoot, options.Positionals[0], "scenario path");
+        ScenarioLoadResult loaded = await ScenarioLoader.LoadAsync(repositoryRoot, scenarioPath, cancellationToken);
+        if (!loaded.Succeeded || loaded.Document is null)
+        {
+            WriteScenarioErrors(loaded.Errors);
+            return 2;
+        }
+
+        string catalogPath = ResolveRepositoryOptionPath(
+            repositoryRoot,
+            options,
+            "--catalog",
+            ScenarioPublicationRegistry.DefaultRelativePath);
+        ScenarioPublicationCatalog catalog = await ScenarioPublicationRegistry.LoadAsync(repositoryRoot, catalogPath, cancellationToken);
+        ScenarioPublicationResult publication = ScenarioPublicationRegistry.Validate(loaded.Document, catalog);
+        bool published = catalog.PublishedScenarios.Any(entry =>
+            string.Equals(entry.ScenarioId, loaded.Document.Scenario.ScenarioId, StringComparison.Ordinal) &&
+            string.Equals(entry.Version, loaded.Document.Scenario.Version, StringComparison.Ordinal) &&
+            string.Equals(entry.Sha256, loaded.Document.Sha256, StringComparison.OrdinalIgnoreCase));
+        if (options.Flags.Contains("--json"))
+        {
+            Console.WriteLine(JsonSerializer.Serialize(new
+            {
+                succeeded = publication.Succeeded,
+                error_code = publication.ErrorCode,
+                detail = publication.Detail,
+                scenario_id = loaded.Document.Scenario.ScenarioId,
+                scenario_version = loaded.Document.Scenario.Version,
+                scenario_sha256 = loaded.Document.Sha256,
+                published,
+            }, DoctorJsonOptions));
+        }
+        else if (publication.Succeeded)
+        {
+            Console.WriteLine("Scenario contract validated.");
+            Console.WriteLine($"  scenario: {loaded.Document.Scenario.ScenarioId}@{loaded.Document.Scenario.Version}");
+            Console.WriteLine($"  sha256: {loaded.Document.Sha256}");
+            Console.WriteLine($"  published: {(published ? "yes" : "no")}");
+            Console.WriteLine($"  publication: {publication.Detail}");
+        }
+        else
+        {
+            Console.Error.WriteLine($"{publication.ErrorCode}: {SecretRedactor.Redact(publication.Detail)}");
+        }
+
+        return publication.Succeeded ? 0 : 2;
+    }
+
+    private static async Task<int> PublishScenarioAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (!TryParseOptions(arguments, ["--catalog", "--json"], out CliOptions options) || options.Positionals.Count != 1)
+        {
+            return WriteUsageError("Usage: ttd-arena scenarios publish <scenario.yaml> [--catalog <path>] [--json]");
+        }
+
+        string scenarioPath = ResolveRepositoryPath(repositoryRoot, options.Positionals[0], "scenario path");
+        ScenarioLoadResult loaded = await ScenarioLoader.LoadAsync(repositoryRoot, scenarioPath, cancellationToken);
+        if (!loaded.Succeeded || loaded.Document is null)
+        {
+            WriteScenarioErrors(loaded.Errors);
+            return 2;
+        }
+
+        string catalogPath = ResolveRepositoryOptionPath(
+            repositoryRoot,
+            options,
+            "--catalog",
+            ScenarioPublicationRegistry.DefaultRelativePath);
+        ScenarioPublicationResult publication = await ScenarioPublicationRegistry.PublishAsync(
+            repositoryRoot,
+            catalogPath,
+            loaded.Document,
+            cancellationToken);
+        if (options.Flags.Contains("--json"))
+        {
+            Console.WriteLine(JsonSerializer.Serialize(new
+            {
+                succeeded = publication.Succeeded,
+                error_code = publication.ErrorCode,
+                detail = publication.Detail,
+                scenario_id = loaded.Document.Scenario.ScenarioId,
+                scenario_version = loaded.Document.Scenario.Version,
+                scenario_sha256 = loaded.Document.Sha256,
+            }, DoctorJsonOptions));
+        }
+        else if (publication.Succeeded)
+        {
+            Console.WriteLine("Scenario publication completed.");
+            Console.WriteLine($"  scenario: {loaded.Document.Scenario.ScenarioId}@{loaded.Document.Scenario.Version}");
+            Console.WriteLine($"  sha256: {loaded.Document.Sha256}");
+            Console.WriteLine($"  catalog: {catalogPath}");
+        }
+        else
+        {
+            Console.Error.WriteLine($"{publication.ErrorCode}: {SecretRedactor.Redact(publication.Detail)}");
+        }
+
+        return publication.Succeeded ? 0 : 2;
+    }
+
+    private static async Task<int> RunScoreAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (arguments.Count == 0 || IsHelp(arguments[0]))
+        {
+            Console.WriteLine("Usage: ttd-arena score recalculate <run-directory> [--json]");
+            return arguments.Count == 0 ? 1 : 0;
+        }
+
+        return arguments[0] switch
+        {
+            "recalculate" => await RecalculateScoreAsync(repositoryRoot, arguments.Skip(1).ToArray(), cancellationToken),
+            _ => UnknownCommand($"score {arguments[0]}"),
+        };
+    }
+
+    private static async Task<int> RecalculateScoreAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (!TryParseOptions(arguments, ["--json"], out CliOptions options) || options.Positionals.Count != 1)
+        {
+            return WriteUsageError("Usage: ttd-arena score recalculate <run-directory> [--json]");
+        }
+
+        string runDirectory = ResolveSuppliedPath(repositoryRoot, options.Positionals[0]);
+        ScoreRecalculationResult result = await ScoreRecalculator.RecalculateAsync(runDirectory, cancellationToken);
+        if (options.Flags.Contains("--json"))
+        {
+            Console.WriteLine(JsonSerializer.Serialize(result, DoctorJsonOptions));
+        }
+        else if (result.Succeeded)
+        {
+            Console.WriteLine("Score recalculation verified.");
+            Console.WriteLine($"  stored score sha256: {result.StoredScoreSha256}");
+            Console.WriteLine($"  recalculated score sha256: {result.RecalculatedScoreSha256}");
+        }
+        else
+        {
+            Console.Error.WriteLine($"{result.ErrorCode}: {SecretRedactor.Redact(result.Detail)}");
+        }
+
+        return result.Succeeded ? 0 : 2;
+    }
+
+    private static async Task<int> RunVerifyRunAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (!TryParseOptions(arguments, ["--json"], out CliOptions options) || options.Positionals.Count != 1)
+        {
+            return WriteUsageError("Usage: ttd-arena verify-run <run-directory> [--json]");
+        }
+
+        string runDirectory = ResolveSuppliedPath(repositoryRoot, options.Positionals[0]);
+        RunVerificationResult result = await RunVerifier.VerifyAsync(runDirectory, cancellationToken);
+        if (options.Flags.Contains("--json"))
+        {
+            Console.WriteLine(JsonSerializer.Serialize(result, DoctorJsonOptions));
+        }
+        else if (result.Succeeded)
+        {
+            Console.WriteLine("Run verification completed.");
+            Console.WriteLine($"  artifacts verified: {result.VerifiedArtifactCount}");
+            Console.WriteLine($"  detail: {result.Detail}");
         }
         else
         {
@@ -486,17 +705,451 @@ public static class ArenaCommandLine
             : string.Equals(result.ErrorCode, ArenaErrorCodes.RunCancelled, StringComparison.Ordinal) ? 130 : 2;
     }
 
+    private static async Task<int> RunActionsAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (arguments.Count == 0 || IsHelp(arguments[0]))
+        {
+            Console.WriteLine("Usage: ttd-arena actions replay <sealed-run-directory> [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+            return arguments.Count == 0 ? 1 : 0;
+        }
+
+        return arguments[0] switch
+        {
+            "replay" => await ReplayAcceptedActionsAsync(repositoryRoot, arguments.Skip(1).ToArray(), cancellationToken),
+            _ => UnknownCommand($"actions {arguments[0]}"),
+        };
+    }
+
+    private static async Task<int> ReplayAcceptedActionsAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (!TryParseOptions(
+                arguments,
+                ["--config", "--startup-timeout-seconds", "--request-timeout-seconds", "--shutdown-timeout-seconds", "--json"],
+                out CliOptions options) ||
+            options.Positionals.Count != 1)
+        {
+            return WriteUsageError("Usage: ttd-arena actions replay <sealed-run-directory> [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+        }
+
+        string sourceRunDirectory = ResolveSuppliedPath(repositoryRoot, options.Positionals[0]);
+        RunVerificationResult sourceVerification = await RunVerifier.VerifyAsync(sourceRunDirectory, cancellationToken);
+        if (!sourceVerification.Succeeded)
+        {
+            Console.Error.WriteLine($"{sourceVerification.ErrorCode}: {SecretRedactor.Redact(sourceVerification.Detail)}");
+            return 2;
+        }
+
+        ScenarioDocument? scenario;
+        BenchmarkMetricSnapshot? expectedFinalMetrics;
+        AcceptedActionReplayReadResult acceptedActions;
+        string sourceStartingSaveSha256;
+        try
+        {
+            RunPathPolicy sourcePaths = new(sourceRunDirectory);
+            ScenarioLoadResult loadedScenario = await ScenarioLoader.LoadAsync(
+                sourceRunDirectory,
+                sourcePaths.Resolve("input/scenario.yaml"),
+                cancellationToken);
+            if (!loadedScenario.Succeeded || loadedScenario.Document is null)
+            {
+                WriteScenarioErrors(loadedScenario.Errors);
+                return 2;
+            }
+
+            scenario = loadedScenario.Document;
+            RunManifest sourceManifest = await RunManifestReader.ReadAsync(sourcePaths, cancellationToken);
+            expectedFinalMetrics = await BenchmarkArtifactStore.ReadFinalMetricsAsync(sourcePaths, cancellationToken);
+            acceptedActions = await AcceptedActionReplayReader.ReadAsync(sourcePaths.Resolve(ObservationArtifactWriter.ActionsFileName), cancellationToken);
+            if (!string.Equals(sourceManifest.RunId, expectedFinalMetrics.RunId, StringComparison.Ordinal))
+            {
+                Console.Error.WriteLine($"{ArenaErrorCodes.ArtifactVerificationFailed}: The sealed manifest and final metrics identify different source runs.");
+                return 2;
+            }
+
+            sourceStartingSaveSha256 = sourceManifest.BenchmarkInputHashes.StartingSaveSha256;
+        }
+        catch (InvalidOperationException exception)
+        {
+            Console.Error.WriteLine($"{ArenaErrorCodes.ArtifactVerificationFailed}: {SecretRedactor.Redact(exception.Message)}");
+            return 2;
+        }
+        catch (IOException)
+        {
+            Console.Error.WriteLine($"{ArenaErrorCodes.ArtifactVerificationFailed}: The sealed replay source could not be read safely.");
+            return 2;
+        }
+
+        if (!acceptedActions.Succeeded || acceptedActions.SourceRunId is null || expectedFinalMetrics is null ||
+            !string.Equals(acceptedActions.SourceRunId, expectedFinalMetrics.RunId, StringComparison.Ordinal))
+        {
+            Console.Error.WriteLine($"{acceptedActions.ErrorCode ?? ArenaErrorCodes.ArtifactVerificationFailed}: {SecretRedactor.Redact(acceptedActions.Detail)}");
+            return 2;
+        }
+
+        ArenaConfigurationLoadResult configurationResult = await ArenaConfigurationLoader.LoadArenaAsync(
+            repositoryRoot,
+            ResolveRepositoryOptionPath(repositoryRoot, options, "--config", ".config/arena.local.yaml"),
+            cancellationToken);
+        if (!configurationResult.Succeeded || configurationResult.Configuration is null)
+        {
+            WriteConfigurationErrors(configurationResult.Errors);
+            return 2;
+        }
+
+        if (!TryCreateBridgeOptions(options, 20, out Phase03BridgeSmokeOptions bridgeOptions))
+        {
+            return WriteUsageError("actions replay timeouts must be whole seconds within the documented bridge bounds.");
+        }
+
+        Phase03BridgeSmokeResult replay = await CreateBridgeService().RunAsync(
+            configurationResult.Configuration,
+            bridgeOptions,
+            new Phase07AcceptedActionReplayBridgeExtension(
+                scenario!,
+                expectedFinalMetrics,
+                acceptedActions.AcceptedActions,
+                acceptedActions.SourceRunId,
+                sourceStartingSaveSha256),
+            cancellationToken);
+        if (options.Flags.Contains("--json"))
+        {
+            Console.WriteLine(JsonSerializer.Serialize(replay, DoctorJsonOptions));
+        }
+        else
+        {
+            string runDirectory = Path.Combine(configurationResult.Configuration.Runtime.Runs, replay.RunId);
+            Console.WriteLine($"Phase 07 accepted-action replay {(replay.Succeeded ? "completed" : "failed")}.");
+            Console.WriteLine($"  source run: {sourceRunDirectory}");
+            Console.WriteLine($"  replay run: {runDirectory}");
+            Console.WriteLine($"  result: {Path.Combine(runDirectory, "bridge-result.json")}");
+            Console.WriteLine($"  actions: {Path.Combine(runDirectory, ObservationArtifactWriter.ActionsFileName)}");
+            Console.WriteLine($"  metrics: {Path.Combine(runDirectory, ObservationArtifactWriter.MetricsFileName)}");
+            if (replay.ErrorCode is not null)
+            {
+                Console.WriteLine($"  error: {replay.ErrorCode}");
+            }
+        }
+
+        return BridgeExitCode(replay);
+    }
+
+    private static async Task<int> RunBenchmarkSmokeAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (!TryParseOptions(
+                arguments,
+                ["--config", "--scenario", "--startup-timeout-seconds", "--request-timeout-seconds", "--shutdown-timeout-seconds", "--json"],
+                out CliOptions options) ||
+            options.Positionals.Count != 0)
+        {
+            return WriteUsageError("Usage: ttd-arena benchmark-smoke [--scenario <path>] [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+        }
+
+        string scenarioPath = ResolveRepositoryOptionPath(repositoryRoot, options, "--scenario", "scenarios/road-profit-smoke-v1.yaml");
+        ScenarioDocument? scenario = await LoadPublishedScenarioAsync(repositoryRoot, scenarioPath, cancellationToken);
+        if (scenario is null)
+        {
+            return 2;
+        }
+
+        ArenaConfigurationLoadResult configurationResult = await ArenaConfigurationLoader.LoadArenaAsync(
+            repositoryRoot,
+            ResolveRepositoryOptionPath(repositoryRoot, options, "--config", ".config/arena.local.yaml"),
+            cancellationToken);
+        if (!configurationResult.Succeeded || configurationResult.Configuration is null)
+        {
+            WriteConfigurationErrors(configurationResult.Errors);
+            return 2;
+        }
+
+        if (!TryCreateBridgeOptions(options, 20, out Phase03BridgeSmokeOptions bridgeOptions))
+        {
+            return WriteUsageError("benchmark-smoke timeouts must be whole seconds within the documented bridge bounds.");
+        }
+
+        return await RunBenchmarkBridgeAsync(
+            configurationResult.Configuration,
+            bridgeOptions,
+            scenario,
+            "road-profit-replay-v1",
+            observation => Phase07RoadProfitBridgeExtension.CreateReplayProvider(observation, scenario),
+            "Phase 07 road-profit replay benchmark smoke",
+            options.Flags.Contains("--json"),
+            cancellationToken);
+    }
+
+    private static async Task<int> RunBenchmarkAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (arguments.Count == 0 || IsHelp(arguments[0]))
+        {
+            Console.WriteLine("Usage: ttd-arena benchmark run <scenario.yaml> <replay|provider-id> [--config <path>] [--providers-config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+            return arguments.Count == 0 ? 1 : 0;
+        }
+
+        return arguments[0] switch
+        {
+            "run" => await RunBenchmarkProviderAsync(repositoryRoot, arguments.Skip(1).ToArray(), cancellationToken),
+            _ => UnknownCommand($"benchmark {arguments[0]}"),
+        };
+    }
+
+    private static async Task<int> RunBenchmarkProviderAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (!TryParseOptions(
+                arguments,
+                ["--config", "--providers-config", "--startup-timeout-seconds", "--request-timeout-seconds", "--shutdown-timeout-seconds", "--json"],
+                out CliOptions options) ||
+            options.Positionals.Count != 2)
+        {
+            return WriteUsageError("Usage: ttd-arena benchmark run <scenario.yaml> <replay|provider-id> [--config <path>] [--providers-config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+        }
+
+        string scenarioPath = ResolveRepositoryPath(repositoryRoot, options.Positionals[0], "scenario path");
+        string providerId = options.Positionals[1];
+        ScenarioDocument? scenario = await LoadPublishedScenarioAsync(repositoryRoot, scenarioPath, cancellationToken);
+        if (scenario is null)
+        {
+            return 2;
+        }
+
+        ArenaConfigurationLoadResult arenaConfiguration = await ArenaConfigurationLoader.LoadArenaAsync(
+            repositoryRoot,
+            ResolveRepositoryOptionPath(repositoryRoot, options, "--config", ".config/arena.local.yaml"),
+            cancellationToken);
+        if (!arenaConfiguration.Succeeded || arenaConfiguration.Configuration is null)
+        {
+            WriteConfigurationErrors(arenaConfiguration.Errors);
+            return 2;
+        }
+
+        if (!TryCreateBridgeOptions(options, 60, out Phase03BridgeSmokeOptions bridgeOptions))
+        {
+            return WriteUsageError("benchmark run timeouts must be whole seconds within the documented bridge bounds.");
+        }
+
+        if (string.Equals(providerId, "replay", StringComparison.Ordinal))
+        {
+            return await RunBenchmarkBridgeAsync(
+                arenaConfiguration.Configuration,
+                bridgeOptions,
+                scenario,
+                "road-profit-replay-v1",
+                observation => Phase07RoadProfitBridgeExtension.CreateReplayProvider(observation, scenario),
+                "Phase 07 road-profit replay benchmark",
+                options.Flags.Contains("--json"),
+                cancellationToken);
+        }
+
+        ProviderConfigurationLoadResult providersConfiguration = await ArenaConfigurationLoader.LoadProvidersAsync(
+            repositoryRoot,
+            ResolveRepositoryOptionPath(repositoryRoot, options, "--providers-config", ".config/providers.local.yaml"),
+            cancellationToken);
+        if (!providersConfiguration.Succeeded || providersConfiguration.Configuration is null)
+        {
+            Console.Error.WriteLine("Provider configuration is invalid. Run doctor --verbose for redacted remediation.");
+            return 2;
+        }
+
+        if (!providersConfiguration.Configuration.Providers.TryGetValue(providerId, out ProviderLocalConfiguration? providerConfiguration) ||
+            !string.Equals(providerConfiguration.Type, "deepseek", StringComparison.Ordinal) ||
+            providerConfiguration.CredentialReference is null ||
+            string.IsNullOrWhiteSpace(providerConfiguration.Model))
+        {
+            Console.Error.WriteLine("benchmark run requires a configured DeepSeek provider with model and credential_ref metadata, or the built-in replay provider.");
+            return 2;
+        }
+
+        WindowsCredentialStore credentialStore = new();
+        CredentialReadResult credential = await credentialStore.ReadAsync(providerConfiguration.CredentialReference, cancellationToken);
+        try
+        {
+            if (!credential.Succeeded || credential.Secret is null)
+            {
+                Console.Error.WriteLine($"{credential.ErrorCode}: {SecretRedactor.Redact(credential.UserMessage)}");
+                return 2;
+            }
+        }
+        finally
+        {
+            credential.Secret?.Dispose();
+        }
+
+        using HttpClient httpClient = new();
+        ProviderCreationResult providerCreation = new ModelProviderFactory(credentialStore, httpClient).Create(providerConfiguration);
+        if (!providerCreation.Succeeded || providerCreation.Provider is null)
+        {
+            WriteError(providerCreation.Error);
+            return 2;
+        }
+
+        IModelProvider provider = providerCreation.Provider;
+        return await RunBenchmarkBridgeAsync(
+            arenaConfiguration.Configuration,
+            bridgeOptions,
+            scenario,
+            providerConfiguration.Model,
+            _ => provider,
+            "Phase 07 road-profit provider benchmark",
+            options.Flags.Contains("--json"),
+            cancellationToken);
+    }
+
+    private static async Task<int> RunBenchmarkBridgeAsync(
+        ArenaLocalConfiguration configuration,
+        Phase03BridgeSmokeOptions bridgeOptions,
+        ScenarioDocument scenario,
+        string model,
+        Func<ObservationBuildResult, IModelProvider> providerFactory,
+        string displayName,
+        bool json,
+        CancellationToken cancellationToken)
+    {
+        Phase03BridgeSmokeResult result = await CreateBridgeService().RunAsync(
+            configuration,
+            bridgeOptions,
+            new Phase07RoadProfitBridgeExtension(scenario, model, providerFactory),
+            cancellationToken);
+        if (json)
+        {
+            Console.WriteLine(JsonSerializer.Serialize(result, DoctorJsonOptions));
+        }
+        else
+        {
+            string runDirectory = Path.Combine(configuration.Runtime.Runs, result.RunId);
+            Console.WriteLine($"{displayName} {(result.Succeeded ? "completed" : "failed")}.");
+            Console.WriteLine($"  run: {runDirectory}");
+            Console.WriteLine($"  result: {Path.Combine(runDirectory, "bridge-result.json")}");
+            Console.WriteLine($"  manifest: {Path.Combine(runDirectory, RunManifestFinalizer.ManifestFileName)}");
+            Console.WriteLine($"  score: {Path.Combine(runDirectory, BenchmarkArtifactStore.ScoreFileName)}");
+            Console.WriteLine($"  final metrics: {Path.Combine(runDirectory, BenchmarkArtifactStore.FinalMetricsFileName)}");
+            Console.WriteLine($"  actions: {Path.Combine(runDirectory, ObservationArtifactWriter.ActionsFileName)}");
+            if (result.ErrorCode is not null)
+            {
+                Console.WriteLine($"  error: {result.ErrorCode}");
+            }
+        }
+
+        return BridgeExitCode(result);
+    }
+
+    private static async Task<ScenarioDocument?> LoadPublishedScenarioAsync(
+        string repositoryRoot,
+        string scenarioPath,
+        CancellationToken cancellationToken)
+    {
+        ScenarioLoadResult loaded = await ScenarioLoader.LoadAsync(repositoryRoot, scenarioPath, cancellationToken);
+        if (!loaded.Succeeded || loaded.Document is null)
+        {
+            WriteScenarioErrors(loaded.Errors);
+            return null;
+        }
+
+        ScenarioPublicationCatalog catalog = await ScenarioPublicationRegistry.LoadAsync(
+            repositoryRoot,
+            ScenarioPublicationRegistry.DefaultRelativePath,
+            cancellationToken);
+        ScenarioPublicationResult publication = ScenarioPublicationRegistry.RequirePublished(loaded.Document, catalog);
+        if (!publication.Succeeded)
+        {
+            Console.Error.WriteLine($"{publication.ErrorCode}: {SecretRedactor.Redact(publication.Detail)}");
+            return null;
+        }
+
+        return loaded.Document;
+    }
+
+    private static async Task<int> RunRoadConstraintSmokeAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        if (!TryParseOptions(
+                arguments,
+                ["--config", "--scenario", "--startup-timeout-seconds", "--request-timeout-seconds", "--shutdown-timeout-seconds", "--json"],
+                out CliOptions options) ||
+            options.Positionals.Count != 0)
+        {
+            return WriteUsageError("Usage: ttd-arena road-constraint-smoke [--scenario <path>] [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+        }
+
+        string scenarioPath = ResolveRepositoryOptionPath(repositoryRoot, options, "--scenario", "scenarios/road-profit-smoke-v1.yaml");
+        ScenarioDocument? scenario = await LoadPublishedScenarioAsync(repositoryRoot, scenarioPath, cancellationToken);
+        if (scenario is null)
+        {
+            return 2;
+        }
+
+        ArenaConfigurationLoadResult configurationResult = await ArenaConfigurationLoader.LoadArenaAsync(
+            repositoryRoot,
+            ResolveRepositoryOptionPath(repositoryRoot, options, "--config", ".config/arena.local.yaml"),
+            cancellationToken);
+        if (!configurationResult.Succeeded || configurationResult.Configuration is null)
+        {
+            WriteConfigurationErrors(configurationResult.Errors);
+            return 2;
+        }
+
+        if (!TryCreateBridgeOptions(options, 20, out Phase03BridgeSmokeOptions bridgeOptions))
+        {
+            return WriteUsageError("road-constraint-smoke timeouts must be whole seconds within the documented bridge bounds.");
+        }
+
+        Phase03BridgeSmokeResult result = await CreateBridgeService().RunAsync(
+            configurationResult.Configuration,
+            bridgeOptions,
+            new Phase07ConstraintBridgeExtension(scenario),
+            cancellationToken);
+        if (options.Flags.Contains("--json"))
+        {
+            Console.WriteLine(JsonSerializer.Serialize(result, DoctorJsonOptions));
+        }
+        else
+        {
+            string runDirectory = Path.Combine(configurationResult.Configuration.Runtime.Runs, result.RunId);
+            Console.WriteLine($"Phase 07 road constraint smoke {(result.Succeeded ? "completed" : "failed")}.");
+            Console.WriteLine($"  run: {runDirectory}");
+            Console.WriteLine($"  result: {Path.Combine(runDirectory, "bridge-result.json")}");
+            Console.WriteLine($"  actions: {Path.Combine(runDirectory, ObservationArtifactWriter.ActionsFileName)}");
+            if (result.ErrorCode is not null)
+            {
+                Console.WriteLine($"  error: {result.ErrorCode}");
+            }
+        }
+
+        return BridgeExitCode(result);
+    }
+
     private static Task<int> RunRoadSmokeAsync(
         string repositoryRoot,
         IReadOnlyList<string> arguments,
         CancellationToken cancellationToken) =>
-        RunRoadSmokeCoreAsync(repositoryRoot, arguments, false, "road-smoke", "Phase 06 replay road smoke", cancellationToken);
+        RunRoadSmokeCoreAsync(repositoryRoot, arguments, false, false, "road-smoke", "Phase 06 replay road smoke", cancellationToken);
+
+    private static Task<int> RunRoadSpecialLinkSmokeAsync(
+        string repositoryRoot,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken) =>
+        RunRoadSmokeCoreAsync(repositoryRoot, arguments, false, true, "road-special-link-smoke", "Phase 06 native bridge special-link smoke", cancellationToken);
 
     private static Task<int> RunFleetSmokeAsync(
         string repositoryRoot,
         IReadOnlyList<string> arguments,
         CancellationToken cancellationToken) =>
-        RunRoadSmokeCoreAsync(repositoryRoot, arguments, true, "fleet-smoke", "Phase 06 replay road and fleet smoke", cancellationToken);
+        RunRoadSmokeCoreAsync(repositoryRoot, arguments, true, false, "fleet-smoke", "Phase 06 replay road and fleet smoke", cancellationToken);
 
     private static async Task<int> RunRoadSaveLoadSmokeAsync(
         string repositoryRoot,
@@ -775,6 +1428,7 @@ public static class ArenaCommandLine
         string repositoryRoot,
         IReadOnlyList<string> arguments,
         bool verifyFleetExpansion,
+        bool requireNativeBridgeLink,
         string commandName,
         string displayName,
         CancellationToken cancellationToken)
@@ -825,7 +1479,9 @@ public static class ArenaCommandLine
                 TimeSpan.FromSeconds(startupTimeoutSeconds),
                 TimeSpan.FromSeconds(requestTimeoutSeconds),
                 TimeSpan.FromSeconds(shutdownTimeoutSeconds)),
-            new Phase06ReplayRoadBridgeExtension(verifyFleetExpansion),
+            requireNativeBridgeLink
+                ? Phase06ReplayRoadBridgeExtension.CreateSpecialLinkSmoke()
+                : new Phase06ReplayRoadBridgeExtension(verifyFleetExpansion),
             cancellationToken);
 
         if (options.Flags.Contains("--json"))
@@ -1108,6 +1764,61 @@ public static class ArenaCommandLine
         return providers;
     }
 
+    private static Phase03BridgeService CreateBridgeService() =>
+        new(
+            new RunDirectoryAllocator(),
+            new SystemArenaProcessFactory(),
+            new CliOpenTtdConsoleBridge(),
+            new TcpLoopbackReadinessProbe(),
+            new WindowsCredentialStore());
+
+    private static bool TryCreateBridgeOptions(
+        CliOptions options,
+        int defaultRequestTimeoutSeconds,
+        out Phase03BridgeSmokeOptions bridgeOptions)
+    {
+        bridgeOptions = default!;
+        if (!TryGetBoundedSeconds(options, "--startup-timeout-seconds", 60, 5, 300, out int startupTimeoutSeconds) ||
+            !TryGetBoundedSeconds(options, "--request-timeout-seconds", defaultRequestTimeoutSeconds, 8, 60, out int requestTimeoutSeconds) ||
+            !TryGetBoundedSeconds(options, "--shutdown-timeout-seconds", 15, 2, 120, out int shutdownTimeoutSeconds))
+        {
+            return false;
+        }
+
+        bridgeOptions = new Phase03BridgeSmokeOptions(
+            TimeSpan.FromSeconds(startupTimeoutSeconds),
+            TimeSpan.FromSeconds(requestTimeoutSeconds),
+            TimeSpan.FromSeconds(shutdownTimeoutSeconds));
+        return true;
+    }
+
+    private static int BridgeExitCode(Phase03BridgeSmokeResult result) =>
+        result.Succeeded
+            ? 0
+            : string.Equals(result.ErrorCode, ArenaErrorCodes.RunCancelled, StringComparison.Ordinal) ? 130 : 2;
+
+    private static void WriteConfigurationErrors(IReadOnlyList<ConfigurationValidationError> errors)
+    {
+        foreach (ConfigurationValidationError error in errors)
+        {
+            Console.Error.WriteLine($"{error.Code}: {SecretRedactor.Redact(error.Message)}");
+        }
+    }
+
+    private static void WriteScenarioErrors(IReadOnlyList<ScenarioValidationError> errors)
+    {
+        if (errors.Count == 0)
+        {
+            Console.Error.WriteLine($"{ArenaErrorCodes.ScenarioInvalid}: The scenario does not satisfy the supported immutable benchmark contract.");
+            return;
+        }
+
+        foreach (ScenarioValidationError error in errors)
+        {
+            Console.Error.WriteLine($"{ArenaErrorCodes.ScenarioInvalid}: {error.Field}: {SecretRedactor.Redact(error.Message)}");
+        }
+    }
+
     private static DoctorService CreateDoctorService() =>
         new(
             new DoctorSystemProbe(),
@@ -1201,6 +1912,26 @@ public static class ArenaCommandLine
         return Path.IsPathRooted(path)
             ? Path.GetFullPath(path)
             : Path.GetFullPath(Path.Combine(repositoryRoot, path));
+    }
+
+    private static string ResolveSuppliedPath(string repositoryRoot, string suppliedPath) =>
+        Path.IsPathRooted(suppliedPath)
+            ? Path.GetFullPath(suppliedPath)
+            : Path.GetFullPath(Path.Combine(repositoryRoot, suppliedPath));
+
+    private static string ResolveRepositoryPath(string repositoryRoot, string suppliedPath, string description)
+    {
+        string path = ResolveSuppliedPath(repositoryRoot, suppliedPath);
+        string root = Path.GetFullPath(repositoryRoot);
+        string rootWithSeparator = root.EndsWith(Path.DirectorySeparatorChar)
+            ? root
+            : root + Path.DirectorySeparatorChar;
+        if (!path.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(description + " must resolve inside this repository.");
+        }
+
+        return path;
     }
 
     private static string ResolveRepositoryOptionPath(
@@ -1356,17 +2087,26 @@ public static class ArenaCommandLine
 
     private static void WriteHelp()
     {
-        Console.WriteLine("OpenTTD Model Arena Phase 04-06 commands:");
+        Console.WriteLine("OpenTTD Model Arena Phase 04-07 commands:");
         Console.WriteLine("  ttd-arena bootstrap [--config <path>] [--providers-config <path>] [--openttd-source <directory>]");
         Console.WriteLine("  ttd-arena doctor [--config <path>] [--providers-config <path>] [--json] [--verbose]");
         Console.WriteLine("  ttd-arena smoke [--config <path>] [--duration-seconds <0-300>] [--startup-timeout-seconds <5-300>] [--shutdown-timeout-seconds <2-120>] [--json]");
         Console.WriteLine("  ttd-arena bridge-smoke [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
         Console.WriteLine("  ttd-arena observation-smoke [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
         Console.WriteLine("  ttd-arena road-smoke [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+        Console.WriteLine("  ttd-arena road-special-link-smoke [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
         Console.WriteLine("  ttd-arena fleet-smoke [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
         Console.WriteLine("  ttd-arena road-save-load-smoke --stage <proposed|validating|surveying|building_infrastructure|buying_vehicles|configuring_orders|verifying> [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
         Console.WriteLine("  ttd-arena road-budget-smoke [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
         Console.WriteLine("  ttd-arena provider-road-smoke <provider-id> [--config <path>] [--providers-config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+        Console.WriteLine("  ttd-arena scenarios validate <scenario.yaml> [--catalog <path>] [--json]");
+        Console.WriteLine("  ttd-arena scenarios publish <scenario.yaml> [--catalog <path>] [--json]");
+        Console.WriteLine("  ttd-arena benchmark-smoke [--scenario <path>] [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+        Console.WriteLine("  ttd-arena benchmark run <scenario.yaml> <replay|provider-id> [--config <path>] [--providers-config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+        Console.WriteLine("  ttd-arena road-constraint-smoke [--scenario <path>] [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
+        Console.WriteLine("  ttd-arena verify-run <run-directory> [--json]");
+        Console.WriteLine("  ttd-arena score recalculate <run-directory> [--json]");
+        Console.WriteLine("  ttd-arena actions replay <sealed-run-directory> [--config <path>] [--startup-timeout-seconds <5-300>] [--request-timeout-seconds <8-60>] [--shutdown-timeout-seconds <2-120>] [--json]");
         Console.WriteLine("  ttd-arena observations replay <run-directory|observations.ndjson> [--json]");
         Console.WriteLine("  ttd-arena providers list [--providers-config <path>]");
         Console.WriteLine("  ttd-arena providers test <provider-id> [--providers-config <path>]");
